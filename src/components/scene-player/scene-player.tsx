@@ -2,6 +2,7 @@
 
 import { useState, useRef, useEffect } from 'react';
 import Link from 'next/link';
+import { useSearchParams } from 'next/navigation';
 import { Scene } from '@/src/data/soundscapes';
 import { AudioMixer } from '@/src/components/audio-mixer/audio-mixer';
 
@@ -12,38 +13,54 @@ interface ScenePlayerProps {
 export function ScenePlayer({ scene }: ScenePlayerProps) {
   const videoRef = useRef<HTMLVideoElement>(null);
   const [isVideoLoaded, setIsVideoLoaded] = useState(false);
-  
+  const [hasEntered, setHasEntered] = useState(false);
+  const searchParams = useSearchParams();
+  const fromMap = searchParams.get('from') === 'map';
 
   useEffect(() => {
-    // Auto-play video when loaded
+    // Slight delay so the browser can paint the scaled-up starting state first
+    const raf = requestAnimationFrame(() => {
+      requestAnimationFrame(() => setHasEntered(true));
+    });
+    return () => cancelAnimationFrame(raf);
+  }, []);
+
+  useEffect(() => {
     if (videoRef.current) {
-      videoRef.current.play().catch(() => {
-        // Autoplay might be blocked
-      });
+      videoRef.current.play().catch(() => {});
     }
   }, []);
 
   return (
     <div className="relative h-screen w-full overflow-hidden">
-      {/* Video Background */}
+      {/* Video Background — starts slightly zoomed in and settles to fill */}
       <video
         ref={videoRef}
         src={scene.videoUrl}
-        className={`absolute inset-0 h-full w-full object-cover transition-opacity duration-1000 ${
+        className={`absolute inset-0 h-full w-full object-cover transition-[opacity,transform] ease-out ${
           isVideoLoaded ? 'opacity-100' : 'opacity-0'
-        }`}
+        } ${fromMap ? (hasEntered ? 'scale-100 duration-[1400ms]' : 'scale-[1.12] duration-[1400ms]') : ''}`}
         loop
         muted
         playsInline
         onLoadedData={() => setIsVideoLoaded(true)}
       />
 
-      {/* Loading State */}
-      {!isVideoLoaded && (
-        <div className="absolute inset-0 flex items-center justify-center bg-muted">
-          <div className="h-6 w-6 animate-spin rounded-full border-2 border-accent border-t-transparent" />
-        </div>
-      )}
+      {/* Green curtain — always shown while loading; fades to reveal video once ready.
+          For map transitions it also covers the portal animation handoff. */}
+      <div
+        aria-hidden
+        className={`pointer-events-none absolute inset-0 z-40 bg-accent transition-opacity duration-500 ${
+          isVideoLoaded && (fromMap ? hasEntered : true) ? 'opacity-0' : 'opacity-100'
+        }`}
+      >
+        {/* Spinner visible while the video is still buffering */}
+        {!isVideoLoaded && (
+          <div className="flex h-full items-center justify-center">
+            <div className="h-6 w-6 animate-spin rounded-full border-2 border-white/60 border-t-transparent" />
+          </div>
+        )}
+      </div>
 
       {/* Overlay gradient for text legibility */}
       <div className="absolute inset-0 bg-gradient-to-b from-foreground/20 via-transparent to-foreground/40" />
