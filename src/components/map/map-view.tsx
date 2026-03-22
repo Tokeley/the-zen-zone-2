@@ -1,11 +1,30 @@
 'use client';
 
-import { useRef, useState, useCallback } from 'react';
+import { useRef, useState, useCallback, useEffect } from 'react';
 import Image from 'next/image';
 import Map, { Marker, Popup, MapRef } from 'react-map-gl';
 import { scenes, Scene } from '@/src/data/soundscapes';
 import { useRouter } from 'next/navigation';
 import 'mapbox-gl/dist/mapbox-gl.css';
+
+const MAP_VIEW_STATE_KEY = 'zen-map-view-state';
+
+const DEFAULT_VIEW_STATE = {
+  longitude: 0,
+  latitude: 20,
+  zoom: 1.8,
+};
+
+function getSavedViewState() {
+  if (typeof window === 'undefined') return DEFAULT_VIEW_STATE;
+  try {
+    const raw = sessionStorage.getItem(MAP_VIEW_STATE_KEY);
+    if (raw) return JSON.parse(raw);
+  } catch {
+    // ignore
+  }
+  return DEFAULT_VIEW_STATE;
+}
 
 interface MapViewProps {
   onSearchOpen: () => void;
@@ -16,11 +35,7 @@ export function MapView({ onSearchOpen }: MapViewProps) {
   const router = useRouter();
   const [selectedScene, setSelectedScene] = useState<Scene | null>(null);
   const [menuOpen, setMenuOpen] = useState(false);
-  const [viewState, setViewState] = useState({
-    longitude: 0,
-    latitude: 20,
-    zoom: 1.8,
-  });
+  const [viewState, setViewState] = useState(getSavedViewState);
 
   const handleMarkerClick = useCallback((scene: Scene) => {
     setSelectedScene(scene);
@@ -105,7 +120,14 @@ export function MapView({ onSearchOpen }: MapViewProps) {
       <Map
         ref={mapRef}
         {...viewState}
-        onMove={(evt) => setViewState(evt.viewState)}
+        onMove={(evt) => {
+          setViewState(evt.viewState);
+          try {
+            sessionStorage.setItem(MAP_VIEW_STATE_KEY, JSON.stringify(evt.viewState));
+          } catch {
+            // ignore
+          }
+        }}
         style={{ width: '100%', height: '100%' }}
         mapStyle="mapbox://styles/mapbox/light-v11"
         mapboxAccessToken={process.env.NEXT_PUBLIC_MAPBOX_TOKEN || 'pk.eyJ1IjoiZGVtby12MCIsImEiOiJjbHd4eWV6eGowMDFqMmlxd2F5OXRwMWZpIn0.demo-token'}
