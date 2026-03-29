@@ -11,14 +11,22 @@ const MAP_VIEW_STATE_KEY = 'zen-map-view-state';
 // Snapshot taken just before the zoom-in animation so we can restore it on return
 const MAP_RETURN_STATE_KEY = 'zen-map-return-state';
 
-const DEFAULT_VIEW_STATE = {
+// First load: very zoomed-out globe that auto-spins until interaction
+const INITIAL_FIRST_LOAD = {
   longitude: 0,
   latitude: 20,
-  zoom: 1.8,
+  zoom: 1,
 };
 
-function getSavedViewState() {
-  if (typeof window === 'undefined') return DEFAULT_VIEW_STATE;
+const SECONDS_PER_REVOLUTION = 120;
+
+function getSavedViewState(): {
+  longitude: number;
+  latitude: number;
+  zoom: number;
+  bearing?: number;
+} {
+  if (typeof window === 'undefined') return INITIAL_FIRST_LOAD;
   try {
     // Prefer the pre-zoom snapshot when returning from a scene
     const returnRaw = sessionStorage.getItem(MAP_RETURN_STATE_KEY);
@@ -31,7 +39,15 @@ function getSavedViewState() {
   } catch {
     // ignore
   }
-  return DEFAULT_VIEW_STATE;
+  return INITIAL_FIRST_LOAD;
+}
+
+function isFirstLoad(): boolean {
+  if (typeof window === 'undefined') return true;
+  return (
+    !sessionStorage.getItem(MAP_VIEW_STATE_KEY) &&
+    !sessionStorage.getItem(MAP_RETURN_STATE_KEY)
+  );
 }
 
 interface MapViewProps {
@@ -45,6 +61,41 @@ export function MapView({ onSearchOpen }: MapViewProps) {
   const [menuOpen, setMenuOpen] = useState(false);
   const [viewState, setViewState] = useState(getSavedViewState);
   const [isZoomingIn, setIsZoomingIn] = useState(false);
+  const [userHasInteracted, setUserHasInteracted] = useState(false);
+  const userHasInteractedRef = useRef(false);
+  const shouldAutoSpin = useRef(isFirstLoad());
+
+  const spinGlobe = useCallback(() => {
+    const map = mapRef.current?.getMap?.();
+    if (!map || userHasInteractedRef.current || !shouldAutoSpin.current) return;
+    const zoom = map.getZoom();
+    if (zoom >= 5) return; // Don't spin when zoomed in
+    const distancePerSecond = 360 / SECONDS_PER_REVOLUTION;
+    const center = map.getCenter();
+    center.lng -= distancePerSecond;
+    map.easeTo({ center, duration: 1000, easing: (n) => n });
+  }, []);
+
+  useEffect(() => {
+    userHasInteractedRef.current = userHasInteracted;
+  }, [userHasInteracted]);
+
+  const handleMapLoad = useCallback(() => {
+    if (shouldAutoSpin.current && !userHasInteractedRef.current) {
+      spinGlobe();
+    }
+  }, [spinGlobe]);
+
+  const handleUserInteraction = useCallback(() => {
+    userHasInteractedRef.current = true;
+    setUserHasInteracted(true);
+  }, []);
+
+  const handleMoveEnd = useCallback(() => {
+    if (!userHasInteractedRef.current && shouldAutoSpin.current) {
+      spinGlobe();
+    }
+  }, [spinGlobe]);
 
   const handleMarkerClick = useCallback((scene: Scene) => {
     setSelectedScene(scene);
@@ -79,7 +130,7 @@ export function MapView({ onSearchOpen }: MapViewProps) {
     // Navigate once the overlay has fully covered the screen
     const sceneId = selectedScene.id;
     setTimeout(() => {
-      router.push(`/scene/${sceneId}?from=map`);
+      router.push(`/scene/${sceneId}`);
     }, 750);
   }, [selectedScene, viewState, router]);
 
@@ -151,6 +202,7 @@ export function MapView({ onSearchOpen }: MapViewProps) {
       <Map
         ref={mapRef}
         {...viewState}
+        projection="globe"
         onMove={(evt) => {
           setViewState(evt.viewState);
           try {
@@ -159,6 +211,15 @@ export function MapView({ onSearchOpen }: MapViewProps) {
             // ignore
           }
         }}
+        onMoveEnd={handleMoveEnd}
+        onMouseDown={handleUserInteraction}
+        onTouchStart={handleUserInteraction}
+        onWheel={handleUserInteraction}
+        onDragStart={handleUserInteraction}
+        onZoomStart={handleUserInteraction}
+        onRotateStart={handleUserInteraction}
+        onPitchStart={handleUserInteraction}
+        onLoad={handleMapLoad}
         style={{ width: '100%', height: '100%' }}
         mapStyle="mapbox://styles/mapbox/light-v11"
         mapboxAccessToken={process.env.NEXT_PUBLIC_MAPBOX_TOKEN || 'pk.eyJ1IjoiZGVtby12MCIsImEiOiJjbHd4eWV6eGowMDFqMmlxd2F5OXRwMWZpIn0.demo-token'}
@@ -249,10 +310,13 @@ export function MapView({ onSearchOpen }: MapViewProps) {
       {/* Portal zoom overlay — expands from the centre on "Enter Scene" */}
       <div
         aria-hidden
-        className="pointer-events-none absolute inset-0 z-50 bg-accent"
+        className="pointer-events-none absolute inset-0 z-50"
         style={{
+          background: isZoomingIn ? 'black' : 'oklch(0.56 0.04 135)',
           clipPath: isZoomingIn ? 'circle(150% at 50% 50%)' : 'circle(0% at 50% 50%)',
-          transition: isZoomingIn ? 'clip-path 750ms cubic-bezier(0.7, 0, 1, 1)' : 'none',
+          transition: isZoomingIn
+            ? 'clip-path 750ms cubic-bezier(0.7, 0, 1, 1), background-color 750ms ease-in'
+            : 'none',
         }}
       />
     </div>
