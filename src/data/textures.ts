@@ -3,8 +3,17 @@ export interface AmbientSound {
   id: string;
   name: string;
   icon: string;
-  // In a real app, this would be an actual audio file URL
   audioUrl: string;
+}
+
+// Base URL for the public R2 textures bucket (set via NEXT_PUBLIC_R2_TEXTURES_URL)
+const TEXTURES_URL =
+  typeof process !== 'undefined'
+    ? (process.env.NEXT_PUBLIC_R2_TEXTURES_URL ?? '')
+    : '';
+
+function textureUrl(filename: string) {
+  return `${TEXTURES_URL}/${filename}`;
 }
 
 export const textures: AmbientSound[] = [
@@ -12,37 +21,37 @@ export const textures: AmbientSound[] = [
     id: 'rain',
     name: 'Rain',
     icon: 'cloud-rain',
-    audioUrl: '/audio/rain.mp3',
+    audioUrl: textureUrl('rain.mp3'),
   },
   {
     id: 'fire',
     name: 'Fire Crackle',
     icon: 'flame',
-    audioUrl: '/audio/fire.mp3',
+    audioUrl: textureUrl('fire-crackle.mp3'),
   },
   {
     id: 'wind',
     name: 'Wind',
     icon: 'wind',
-    audioUrl: '/audio/wind.mp3',
+    audioUrl: textureUrl('wind.mp3'),
   },
   {
     id: 'white-noise',
     name: 'White Noise',
     icon: 'waves',
-    audioUrl: '/audio/white-noise.mp3',
+    audioUrl: textureUrl('white-noise.mp3'),
   },
   {
     id: 'chatter',
     name: 'Ambient Chatter',
     icon: 'users',
-    audioUrl: '/audio/chatter.mp3',
+    audioUrl: textureUrl('ambient-chatter.mp3'),
   },
   {
     id: 'birds',
     name: 'Birds',
     icon: 'bird',
-    audioUrl: '/audio/birds.mp3',
+    audioUrl: textureUrl('birds.mp3'),
   },
 ];
 

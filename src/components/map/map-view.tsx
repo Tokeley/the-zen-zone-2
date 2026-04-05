@@ -202,7 +202,7 @@ export function MapView({ onSearchOpen }: MapViewProps) {
       <Map
         ref={mapRef}
         {...viewState}
-        projection="globe"
+        projection={{ name: 'globe' }}
         onMove={(evt) => {
           setViewState(evt.viewState);
           try {
