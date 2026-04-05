@@ -1,5 +1,5 @@
 import { notFound } from 'next/navigation';
-import { getSceneById, scenes } from '@/src/data/soundscapes';
+import { getSceneById, scenes } from '@/src/data/textures';
 import { ScenePlayer } from '@/src/components/scene-player/scene-player';
 
 interface ScenePageProps {

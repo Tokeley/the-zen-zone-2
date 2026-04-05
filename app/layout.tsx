@@ -10,7 +10,7 @@ const inter = Inter({
 
 export const metadata: Metadata = {
   title: 'The Zen Zone — Ambient Sound Experiences',
-  description: 'Explore calming ambient soundscapes from locations around the world',
+  description: 'Explore calming ambient textures from locations around the world',
   generator: 'v0.app',
   icons: {
     icon: [

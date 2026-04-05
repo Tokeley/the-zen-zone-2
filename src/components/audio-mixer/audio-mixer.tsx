@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useCallback, useMemo } from 'react';
-import { Scene, ambientSounds } from '@/src/data/soundscapes';
+import { Scene, textures } from '@/src/data/textures';
 import { VolumeSlider } from './volume-slider';
 
 interface AudioMixerProps {
@@ -16,7 +16,7 @@ interface AudioState {
 
 // Create initial state outside component to ensure all sounds are included
 const createInitialAmbientLayers = (): AudioState[] =>
-  ambientSounds.map((sound) => ({
+  textures.map((sound) => ({
     id: sound.id,
     enabled: false,
     volume: 50,
@@ -137,7 +137,7 @@ function MixerContent({
 
       {/* Ambient Layers */}
       <div className="grid gap-3 md:grid-cols-2">
-        {ambientSounds.map((sound) => {
+        {textures.map((sound) => {
           const layer = ambientLayers.find((l) => l.id === sound.id) || {
             id: sound.id,
             enabled: false,

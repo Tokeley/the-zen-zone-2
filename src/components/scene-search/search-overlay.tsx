@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useMemo, useEffect } from 'react';
-import { scenes, filterGroups, SceneTag } from '@/src/data/soundscapes';
+import { scenes, filterGroups, SceneTag } from '@/src/data/textures';
 import { SceneCard } from './scene-card';
 
 interface SearchOverlayProps {

@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import Image from 'next/image';
-import { Scene } from '@/src/data/soundscapes';
+import { Scene } from '@/src/data/textures';
 
 interface SceneCardProps {
   scene: Scene;

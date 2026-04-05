@@ -1,4 +1,4 @@
-// Layerable ambient sounds for The Zen Zone
+// Layerable ambient textures for The Zen Zone
 export interface AmbientSound {
   id: string;
   name: string;
@@ -7,7 +7,7 @@ export interface AmbientSound {
   audioUrl: string;
 }
 
-export const ambientSounds: AmbientSound[] = [
+export const textures: AmbientSound[] = [
   {
     id: 'rain',
     name: 'Rain',

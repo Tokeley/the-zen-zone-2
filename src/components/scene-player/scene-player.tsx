@@ -2,7 +2,7 @@
 
 import { useState, useRef, useEffect } from 'react';
 import Link from 'next/link';
-import { Scene } from '@/src/data/soundscapes';
+import { Scene } from '@/src/data/textures';
 import { AudioMixer } from '@/src/components/audio-mixer/audio-mixer';
 
 interface ScenePlayerProps {

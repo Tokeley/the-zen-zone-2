@@ -3,7 +3,7 @@
 import { useRef, useState, useCallback, useEffect } from 'react';
 import Image from 'next/image';
 import Map, { Marker, Popup, MapRef } from 'react-map-gl';
-import { scenes, Scene } from '@/src/data/soundscapes';
+import { scenes, Scene } from '@/src/data/textures';
 import { useRouter } from 'next/navigation';
 import 'mapbox-gl/dist/mapbox-gl.css';
 
