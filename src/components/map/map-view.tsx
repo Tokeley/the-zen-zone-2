@@ -3,7 +3,7 @@
 import { useRef, useState, useCallback, useEffect } from 'react';
 import Image from 'next/image';
 import Map, { Marker, Popup, MapRef } from 'react-map-gl';
-import { scenes, Scene } from '@/src/data/textures';
+import type { Scene } from '@/src/data/textures';
 import { useRouter } from 'next/navigation';
 import 'mapbox-gl/dist/mapbox-gl.css';
 
@@ -51,10 +51,11 @@ function isFirstLoad(): boolean {
 }
 
 interface MapViewProps {
+  scenes: Scene[];
   onSearchOpen: () => void;
 }
 
-export function MapView({ onSearchOpen }: MapViewProps) {
+export function MapView({ scenes, onSearchOpen }: MapViewProps) {
   const mapRef = useRef<MapRef>(null);
   const router = useRouter();
   const [selectedScene, setSelectedScene] = useState<Scene | null>(null);

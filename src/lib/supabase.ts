@@ -1,6 +1,6 @@
 import 'server-only';
 import { createClient } from '@supabase/supabase-js';
-import type { SceneTag } from '@/src/data/textures';
+import type { Scene, SceneTag } from '@/src/data/textures';
 
 // ---------------------------------------------------------------------------
 // Database type definitions
@@ -59,4 +59,55 @@ export function createAdminClient() {
   return createClient<Database>(supabaseUrl, serviceRoleKey, {
     auth: { persistSession: false },
   });
+}
+
+// ---------------------------------------------------------------------------
+// Data helpers (server-only)
+// ---------------------------------------------------------------------------
+
+function rowToScene(row: SceneRow): Scene {
+  return {
+    id: row.id,
+    title: row.title,
+    description: row.description,
+    lat: row.lat,
+    lng: row.lng,
+    videoUrl: row.video_url,
+    audioUrl: row.audio_url,
+    thumbnailUrl: row.thumbnail_url ?? '',
+    tags: row.tags ?? [],
+  };
+}
+
+/** Returns all scenes ordered by creation date (newest first). */
+export async function getScenes(): Promise<Scene[]> {
+  const { data, error } = await supabase
+    .from('scenes')
+    .select('*')
+    .order('created_at', { ascending: false });
+
+  if (error) {
+    console.error('[supabase] getScenes error:', error.message);
+    return [];
+  }
+
+  return (data ?? []).map(rowToScene);
+}
+
+/** Returns a single scene by ID, or null if not found. */
+export async function getSceneById(id: string): Promise<Scene | null> {
+  const { data, error } = await supabase
+    .from('scenes')
+    .select('*')
+    .eq('id', id)
+    .single();
+
+  if (error) {
+    if (error.code !== 'PGRST116') {
+      console.error('[supabase] getSceneById error:', error.message);
+    }
+    return null;
+  }
+
+  return rowToScene(data);
 }

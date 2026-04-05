@@ -1,15 +1,17 @@
 'use client';
 
 import { useState, useMemo, useEffect } from 'react';
-import { scenes, filterGroups, SceneTag } from '@/src/data/textures';
+import { filterGroups, SceneTag } from '@/src/data/textures';
+import type { Scene } from '@/src/data/textures';
 import { SceneCard } from './scene-card';
 
 interface SearchOverlayProps {
+  scenes: Scene[];
   isOpen: boolean;
   onClose: () => void;
 }
 
-export function SearchOverlay({ isOpen, onClose }: SearchOverlayProps) {
+export function SearchOverlay({ scenes, isOpen, onClose }: SearchOverlayProps) {
   const [searchQuery, setSearchQuery] = useState('');
   const [activeFilters, setActiveFilters] = useState<Set<SceneTag>>(new Set());
   const [filtersOpen, setFiltersOpen] = useState(false);

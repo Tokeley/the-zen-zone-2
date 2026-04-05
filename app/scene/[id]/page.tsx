@@ -1,25 +1,19 @@
 import { notFound } from 'next/navigation';
-import { getSceneById, scenes } from '@/src/data/textures';
+import { getSceneById } from '@/src/lib/supabase';
 import { ScenePlayer } from '@/src/components/scene-player/scene-player';
+
+export const revalidate = 60;
 
 interface ScenePageProps {
   params: Promise<{ id: string }>;
 }
 
-export async function generateStaticParams() {
-  return scenes.map((scene) => ({
-    id: scene.id,
-  }));
-}
-
 export async function generateMetadata({ params }: ScenePageProps) {
   const { id } = await params;
-  const scene = getSceneById(id);
-  
+  const scene = await getSceneById(id);
+
   if (!scene) {
-    return {
-      title: 'Scene Not Found',
-    };
+    return { title: 'Scene Not Found' };
   }
 
   return {
@@ -30,7 +24,7 @@ export async function generateMetadata({ params }: ScenePageProps) {
 
 export default async function ScenePage({ params }: ScenePageProps) {
   const { id } = await params;
-  const scene = getSceneById(id);
+  const scene = await getSceneById(id);
 
   if (!scene) {
     notFound();

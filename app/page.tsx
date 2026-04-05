@@ -1,19 +1,10 @@
-'use client';
+import { getScenes } from '@/src/lib/supabase';
+import { HomeClient } from '@/src/components/map/home-client';
 
-import { useState } from 'react';
-import { MapView } from '@/src/components/map/map-view';
-import { SearchOverlay } from '@/src/components/scene-search/search-overlay';
+export const revalidate = 60;
 
-export default function HomePage() {
-  const [isSearchOpen, setIsSearchOpen] = useState(false);
+export default async function HomePage() {
+  const scenes = await getScenes();
 
-  return (
-    <main className="relative h-screen w-full overflow-hidden">
-      <MapView onSearchOpen={() => setIsSearchOpen(true)} />
-      <SearchOverlay 
-        isOpen={isSearchOpen} 
-        onClose={() => setIsSearchOpen(false)} 
-      />
-    </main>
-  );
+  return <HomeClient scenes={scenes} />;
 }

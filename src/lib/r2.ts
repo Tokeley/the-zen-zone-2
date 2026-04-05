@@ -1,6 +1,5 @@
 import 'server-only';
-import { S3Client, PutObjectCommand } from '@aws-sdk/client-s3';
-import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
+import { S3Client } from '@aws-sdk/client-s3';
 
 // ---------------------------------------------------------------------------
 // R2 S3-compatible client (server-only)
@@ -46,24 +45,3 @@ export function getTextureUrl(filename: string): string {
   return `${TEXTURES_PUBLIC_URL}/${filename}`;
 }
 
-// ---------------------------------------------------------------------------
-// Presigned upload URL (server-only — used by the admin upload route)
-// ---------------------------------------------------------------------------
-
-/**
- * Creates a short-lived presigned PUT URL for uploading a file to R2.
- * Only call this from server-side API routes.
- */
-export async function createPresignedUploadUrl(
-  bucket: string,
-  key: string,
-  contentType: string,
-  expiresIn = 3600,
-): Promise<string> {
-  const command = new PutObjectCommand({
-    Bucket: bucket,
-    Key: key,
-    ContentType: contentType,
-  });
-  return getSignedUrl(r2, command, { expiresIn });
-}
