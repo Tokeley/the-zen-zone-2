@@ -1,0 +1,27 @@
+---
+description: Core architecture conventions for The Zen Zone
+alwaysApply: true
+---
+
+# Architecture Conventions
+
+## Where logic lives
+
+- Business logic (audio mixing, session, Supabase queries, R2 URLs) belongs in `src/lib/` — never in page or component files
+- Scene metadata and texture catalog live in `src/data/textures.ts` and Supabase — not hardcoded in components
+- API routes go in `src/app/api/` — keep them thin; delegate to `src/lib/`
+
+## Component organization
+
+- Components are feature-organized: `map/`, `scene-player/`, `audio-mixer/`, `scene-search/`, `admin/`
+- Use Server Components by default; add `"use client"` only for map, audio, interactivity
+
+## Dependencies
+
+- Do not add new dependencies without checking bundle size impact, especially in the map/audio paths
+- Prefer native browser APIs (Web Audio API) over third-party audio libs
+
+## Session
+
+- No user login for public features — session token in `localStorage` persists mix levels per scene
+- Use `src/lib/session.ts` for all token and storage access

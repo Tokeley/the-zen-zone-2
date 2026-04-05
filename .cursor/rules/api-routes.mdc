@@ -1,0 +1,52 @@
+---
+description: API route conventions — Supabase, R2, and admin auth
+globs: src/app/api/**
+alwaysApply: false
+---
+
+# API Route Conventions
+
+## Keep routes thin
+
+API routes delegate to `src/lib/`. No business logic or DB queries inline in the route handler.
+
+```ts
+// ❌ BAD
+export async function GET() {
+  const { data } = await supabase.from("scenes").select("*");
+  return Response.json(data);
+}
+
+// ✅ GOOD
+import { getScenes } from "@/lib/supabase";
+export async function GET() {
+  const scenes = await getScenes();
+  return Response.json(scenes);
+}
+```
+
+## Admin routes
+
+All routes under `src/app/api/admin/` must verify the Supabase Auth session before proceeding:
+
+```ts
+const { data: { session } } = await supabase.auth.getSession();
+if (!session) return new Response("Unauthorized", { status: 401 });
+```
+
+## R2 uploads
+
+File uploads go to R2 via presigned URL — never stream binary through a Vercel function. The upload flow is:
+
+1. Client requests a presigned URL from `POST /api/admin/upload`
+2. Client uploads directly to R2 using the presigned URL
+3. On success, client calls `POST /api/admin/scenes` to save metadata to Supabase
+
+## R2 URL shape
+
+```
+scenes/{scene-id}/video.mp4
+scenes/{scene-id}/audio.mp3
+textures/rain.mp3
+textures/fire-crackle.mp3
+```

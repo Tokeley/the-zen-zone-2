@@ -1,0 +1,56 @@
+---
+description: Web Audio API patterns for scene mixing and texture layers
+globs: src/{lib/audio-engine.ts,components/audio-mixer/**,lib/session.ts}
+alwaysApply: false
+---
+
+# Audio Engine Patterns
+
+## AudioContext initialization
+
+Always start `AudioContext` on a user gesture — never on page load. iOS and Android will block or suspend it otherwise.
+
+```ts
+// ❌ BAD — runs on load
+const ctx = new AudioContext();
+
+// ✅ GOOD — runs on first user interaction
+let ctx: AudioContext | null = null;
+function getAudioContext() {
+  if (!ctx) ctx = new AudioContext();
+  return ctx;
+}
+```
+
+## Mixing architecture
+
+Each audio layer (scene audio + each texture) gets its own `GainNode` feeding into `AudioContext.destination`:
+
+```
+SceneAudioSource → GainNode (scene) ──┐
+TextureSource (rain) → GainNode ──────┤→ destination
+TextureSource (fire) → GainNode ──────┘
+```
+
+All mixing logic lives in `src/lib/audio-engine.ts`. Components only call its public API.
+
+## Session persistence
+
+Gain values are stored in `localStorage` keyed by scene ID via `src/lib/session.ts`. Restore them when returning to a scene:
+
+```ts
+// Persist
+session.setMix(sceneId, { scene: 0.8, rain: 0.4, fire: 0 });
+
+// Restore
+const mix = session.getMix(sceneId);
+```
+
+## Mobile limitations
+
+Document known limitations inline when working around them:
+
+```ts
+// iOS Safari suspends AudioContext when the page is backgrounded.
+// Resume on visibilitychange if state === 'suspended'.
+```
