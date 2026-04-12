@@ -44,7 +44,7 @@ export function AudioMixer({ scene }: AudioMixerProps) {
 
       {/* Expandable mixer panel */}
       <div
-        className={`absolute bottom-16 left-0 min-w-[320px] rounded-lg border border-white/20 bg-black/30 p-5 transition-all duration-300 ease-out md:min-w-[500px] ${
+        className={`fixed bottom-[88px] left-6 right-6 rounded-lg border border-white/20 bg-black/30 p-5 transition-[opacity,transform] duration-300 ease-out sm:absolute sm:bottom-16 sm:left-0 sm:right-auto sm:min-w-[320px] md:min-w-[500px] ${
           isExpanded
             ? 'pointer-events-auto translate-y-0 opacity-100'
             : 'pointer-events-none translate-y-4 opacity-0'
