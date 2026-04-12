@@ -1,9 +1,10 @@
 'use client';
 
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect, useCallback } from 'react';
 import Link from 'next/link';
 import { Scene } from '@/src/data/textures';
 import { AudioMixer } from '@/src/components/audio-mixer/audio-mixer';
+import { PomodoroTimer } from '@/src/components/pomodoro/pomodoro-timer';
 
 interface ScenePlayerProps {
   scene: Scene;
@@ -13,6 +14,26 @@ export function ScenePlayer({ scene }: ScenePlayerProps) {
   const videoRef = useRef<HTMLVideoElement>(null);
   const [isVideoLoaded, setIsVideoLoaded] = useState(false);
   const [hasEntered, setHasEntered] = useState(false);
+  const [mixerOpen, setMixerOpen] = useState(false);
+  const [pomodoroOpen, setPomodoroOpen] = useState(false);
+
+  const toggleMixer = useCallback(() => {
+    setMixerOpen((v) => !v);
+    if (window.innerWidth < 720) setPomodoroOpen(false);
+  }, []);
+
+  const togglePomodoro = useCallback(() => {
+    setPomodoroOpen((v) => !v);
+    if (window.innerWidth < 720) setMixerOpen(false);
+  }, []);
+
+  useEffect(() => {
+    const handleResize = () => {
+      if (window.innerWidth < 720) setPomodoroOpen(false);
+    };
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
 
   useEffect(() => {
     // Slight delay so the browser can paint the scaled-up starting state first
@@ -77,7 +98,10 @@ export function ScenePlayer({ scene }: ScenePlayerProps) {
       </nav>
 
       {/* Audio Mixer */}
-      <AudioMixer scene={scene} />
+      <AudioMixer scene={scene} isOpen={mixerOpen} onToggle={toggleMixer} />
+
+      {/* Pomodoro Timer */}
+      <PomodoroTimer isOpen={pomodoroOpen} onToggle={togglePomodoro} />
     </div>
   );
 }

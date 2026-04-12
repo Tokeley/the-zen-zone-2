@@ -7,11 +7,16 @@ import { VolumeSlider } from './volume-slider';
 
 interface AudioMixerProps {
   scene: Scene;
+  isOpen?: boolean;
+  onToggle?: () => void;
 }
 
-export function AudioMixer({ scene }: AudioMixerProps) {
+export function AudioMixer({ scene, isOpen, onToggle }: AudioMixerProps) {
   const engine = useAudioEngine(scene.id, scene.audioUrl, textures);
-  const [isExpanded, setIsExpanded] = useState(false);
+  const [internalExpanded, setInternalExpanded] = useState(false);
+
+  const isExpanded = isOpen !== undefined ? isOpen : internalExpanded;
+  const handleToggle = onToggle ?? (() => setInternalExpanded((v) => !v));
 
   return (
     <div className="fixed bottom-6 left-6 z-20">
@@ -30,7 +35,7 @@ export function AudioMixer({ scene }: AudioMixerProps) {
         </button>
 
         <button
-          onClick={() => setIsExpanded((v) => !v)}
+          onClick={handleToggle}
           className={`flex h-12 w-12 items-center justify-center rounded-full border backdrop-blur-md transition-colors ${
             isExpanded
               ? 'border-white/40 bg-white/20 text-white'
@@ -44,7 +49,7 @@ export function AudioMixer({ scene }: AudioMixerProps) {
 
       {/* Expandable mixer panel */}
       <div
-        className={`fixed bottom-[88px] left-6 right-6 rounded-lg border border-white/20 bg-black/30 p-5 transition-[opacity,transform] duration-300 ease-out sm:absolute sm:bottom-16 sm:left-0 sm:right-auto sm:min-w-[320px] md:min-w-[500px] ${
+        className={`fixed bottom-[88px] left-6 right-6 rounded-lg border border-white/20 bg-black/30 p-5 transition-[opacity,transform] duration-300 ease-out sm:absolute sm:bottom-16 sm:left-0 sm:right-auto min-[640px]:min-w-[320px] min-[930px]:min-w-[500px] ${
           isExpanded
             ? 'pointer-events-auto translate-y-0 opacity-100'
             : 'pointer-events-none translate-y-4 opacity-0'
@@ -140,12 +145,6 @@ function MixerPanel({ scene, engine }: MixerPanelProps) {
           );
         })}
       </div>
-
-      {!engine.isReady && (
-        <p className="text-center text-[10px] tracking-wide text-white/30">
-          Press play to start audio
-        </p>
-      )}
     </div>
   );
 }

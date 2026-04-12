@@ -1,6 +1,11 @@
 @import 'tailwindcss';
 @import 'tw-animate-css';
 
+@theme {
+  --breakpoint-md: 930px;
+  --breakpoint-sm: 720px;
+}
+
 @custom-variant dark (&:is(.dark *));
 
 /* The Zen Zone - UDO Audio-inspired theme */
