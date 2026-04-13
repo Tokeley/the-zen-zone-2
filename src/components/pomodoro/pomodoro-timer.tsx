@@ -19,7 +19,7 @@ export function PomodoroTimer({ isOpen, onToggle }: PomodoroTimerProps) {
 
   return (
     <div className="fixed bottom-6 right-6 z-20">
-      <div className="flex items-center gap-2">
+      <div className="relative z-30 flex items-center gap-2">
         {/* Mini countdown — visible when panel is closed and timer is running */}
         {showMini && (
           <span className="text-base font-light tabular-nums text-white/80">
@@ -43,14 +43,13 @@ export function PomodoroTimer({ isOpen, onToggle }: PomodoroTimerProps) {
 
       {/* Expandable panel */}
       <div
-        className={`fixed bottom-[88px] left-6 right-6 flex min-h-[221px] flex-col justify-center rounded-lg border border-white/20 bg-black/30 p-5 transition-[opacity,transform] duration-300 ease-out sm:absolute sm:bottom-16 sm:left-auto sm:right-0 sm:min-w-[320px] md:min-w-[360px] ${
-          isExpanded
-            ? 'pointer-events-auto translate-y-0 opacity-100'
-            : 'pointer-events-none translate-y-4 opacity-0'
+        className={`fixed inset-0 flex items-center justify-center transition-opacity duration-300 ease-out pointer-events-none ${
+          isExpanded ? 'opacity-100' : 'opacity-0'
         }`}
-        style={{ backdropFilter: 'blur(12px)', WebkitBackdropFilter: 'blur(12px)' }}
       >
-        <TimerPanel timer={timer} />
+        <div className={isExpanded ? 'pointer-events-auto' : 'pointer-events-none'}>
+          <TimerPanel timer={timer} />
+        </div>
       </div>
     </div>
   );
