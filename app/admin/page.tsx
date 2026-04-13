@@ -1,5 +1,6 @@
 import { Metadata } from 'next';
 import { AdminForm } from '@/src/components/admin/admin-form';
+import { SignOutButton } from '@/src/components/admin/sign-out-button';
 
 export const metadata: Metadata = {
   title: 'Admin — The Zen Zone',
@@ -15,12 +16,15 @@ export default function AdminPage() {
           <h1 className="text-sm font-light tracking-widest uppercase text-foreground">
             Admin
           </h1>
-          <a
-            href="/"
-            className="text-sm text-muted-foreground transition-colors hover:text-foreground"
-          >
-            Back to Map
-          </a>
+          <div className="flex items-center gap-6">
+            <a
+              href="/"
+              className="text-sm text-muted-foreground transition-colors hover:text-foreground"
+            >
+              Back to Map
+            </a>
+            <SignOutButton />
+          </div>
         </div>
       </header>
 

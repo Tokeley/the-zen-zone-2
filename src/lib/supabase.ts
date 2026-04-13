@@ -1,5 +1,7 @@
 import 'server-only';
 import { createClient } from '@supabase/supabase-js';
+import { createServerClient } from '@supabase/ssr';
+import { cookies } from 'next/headers';
 import type { Scene, SceneTag } from '@/src/data/textures';
 
 // ---------------------------------------------------------------------------
@@ -41,10 +43,25 @@ const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
 const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
 
 /**
- * Browser-safe client. Uses the anon key and respects Row Level Security.
- * Safe to import in both Server Components and Client Components.
+ * Basic anon client (no cookie session). Use only for unauthenticated data
+ * queries (scenes list, etc.) in Server Components. For auth-aware server
+ * code (checking session), use createAuthServerClient() instead.
  */
 export const supabase = createClient<Database>(supabaseUrl, supabaseAnonKey);
+
+/**
+ * SSR-aware server client that reads/writes the auth session from cookies.
+ * Use this in Server Components or Route Handlers that need to verify auth.
+ * Must be called inside an async context where next/headers cookies() works.
+ */
+export async function createAuthServerClient() {
+  const cookieStore = await cookies();
+  return createServerClient<Database>(supabaseUrl, supabaseAnonKey, {
+    cookies: {
+      getAll: () => cookieStore.getAll(),
+    },
+  });
+}
 
 /**
  * Admin client. Uses the service-role key — RLS is bypassed.
