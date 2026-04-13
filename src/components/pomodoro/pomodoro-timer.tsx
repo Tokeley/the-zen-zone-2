@@ -22,7 +22,7 @@ export function PomodoroTimer({ isOpen, onToggle }: PomodoroTimerProps) {
       <div className="flex items-center gap-2">
         {/* Mini countdown — visible when panel is closed and timer is running */}
         {showMini && (
-          <span className="text-sm font-light tabular-nums text-white/80">
+          <span className="text-base font-light tabular-nums text-white/80">
             {formatTime(timer.timeRemaining)}
           </span>
         )}
@@ -96,7 +96,7 @@ function TimerPanel({ timer }: { timer: Timer }) {
           else if (timer.status === 'running') timer.pause();
           else timer.resume();
         }}
-        className="mt-1 rounded-full border border-white/20 bg-white/10 px-8 py-2 text-xs font-light tracking-widest uppercase text-white transition-colors hover:bg-white/20"
+        className="mt-1 rounded-full border border-white/20 bg-white/10 px-8 py-2 text-xs font-light tracking-widest uppercase text-white transition-colors"
       >
         {timer.status === 'idle'
           ? 'Start'

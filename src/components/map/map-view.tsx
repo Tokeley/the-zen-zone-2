@@ -73,7 +73,7 @@ export function MapView({ scenes, onSearchOpen }: MapViewProps) {
     if (zoom >= 5) return; // Don't spin when zoomed in
     const distancePerSecond = 360 / SECONDS_PER_REVOLUTION;
     const center = map.getCenter();
-    center.lng -= distancePerSecond;
+    center.lng += distancePerSecond;
     map.easeTo({ center, duration: 1000, easing: (n) => n });
   }, []);
 
