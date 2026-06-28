@@ -3,6 +3,9 @@
 import { useState } from 'react';
 import { usePomodoro, PomodoroPhase } from '@/src/lib/pomodoro';
 
+const TEXT_SHADOW = '0 1px 8px rgba(0,0,0,0.85), 0 0 20px rgba(0,0,0,0.5)';
+const TEXT_SHADOW_SM = '0 1px 6px rgba(0,0,0,0.8)';
+
 interface PomodoroTimerProps {
   isOpen?: boolean;
   onToggle?: () => void;
@@ -22,7 +25,10 @@ export function PomodoroTimer({ isOpen, onToggle }: PomodoroTimerProps) {
       <div className="relative z-30 flex items-center gap-2">
         {/* Mini countdown — visible when panel is closed and timer is running */}
         {showMini && (
-          <span className="text-base font-light tabular-nums text-white/80">
+          <span
+            className="text-2xl font-normal tabular-nums text-white"
+            style={{ textShadow: TEXT_SHADOW_SM }}
+          >
             {formatTime(timer.timeRemaining)}
           </span>
         )}
@@ -63,39 +69,46 @@ function TimerPanel({ timer }: { timer: Timer }) {
   const subtitle = phaseLabel(timer.phase);
 
   return (
-    <div className="flex flex-col items-center gap-5">
-      {/* Phase subtitle */}
-      <span className="text-xs tracking-widest uppercase text-white/60">
+    <div className="flex flex-col items-center gap-8">
+      <span
+        className="text-sm font-light tracking-widest uppercase text-white/90"
+        style={{ textShadow: TEXT_SHADOW_SM }}
+      >
         {subtitle}
       </span>
 
-      {/* Large countdown */}
-      <span className="text-5xl font-light tabular-nums text-white">
+      <span
+        className="text-7xl font-normal tabular-nums text-white"
+        style={{ textShadow: TEXT_SHADOW }}
+      >
         {formatTime(timer.timeRemaining)}
       </span>
 
-      {/* Progress circles */}
-      <div className="flex items-center gap-3">
+      <div className="flex items-center gap-5">
         {Array.from({ length: 4 }, (_, i) => (
           <div
             key={i}
-            className={`h-3 w-3 rounded-full transition-colors duration-300 ${
+            className={`h-[18px] w-[18px] rounded-full transition-colors duration-300 shadow-[0_1px_8px_rgba(0,0,0,0.9),0_0_12px_rgba(0,0,0,0.65)] ${
               i < timer.darkenedCount
                 ? 'bg-white'
-                : 'border border-white/30 bg-white/20'
+                : 'border border-white/50 bg-white/25'
             }`}
           />
         ))}
       </div>
 
-      {/* Action button */}
       <button
         onClick={() => {
           if (timer.status === 'idle') timer.start();
           else if (timer.status === 'running') timer.pause();
           else timer.resume();
         }}
-        className="mt-1 rounded-full border border-white/20 bg-white/10 px-8 py-2 text-xs font-light tracking-widest uppercase text-white transition-colors"
+        className="mt-1.5 rounded-full border border-white/20 bg-black/35 px-12 py-3.5 text-sm font-light tracking-widest uppercase text-white backdrop-blur-md transition-colors hover:bg-black/45"
+        style={{
+          textShadow: TEXT_SHADOW_SM,
+          backdropFilter: 'blur(12px)',
+          WebkitBackdropFilter: 'blur(12px)',
+        }}
       >
         {timer.status === 'idle'
           ? 'Start'
