@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useRef, useCallback, DragEvent, ChangeEvent } from 'react';
+import { useRouter } from 'next/navigation';
 import Map, { Marker, MapLayerMouseEvent } from 'react-map-gl';
 import { filterGroups, type SceneTag } from '@/src/data/textures';
 import { extractVideoThumbnail } from '@/src/lib/video-thumbnail';
@@ -281,6 +282,7 @@ function UploadProgressDisplay({ progress, step }: { progress: UploadProgress; s
 // ---------------------------------------------------------------------------
 
 export function AdminForm() {
+  const router = useRouter();
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
   const [lat, setLat] = useState('');
@@ -377,6 +379,7 @@ export function AdminForm() {
 
       setCreatedSceneId(sceneId);
       setStep('done');
+      router.refresh();
 
       // Reset form
       setTitle('');

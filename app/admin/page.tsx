@@ -1,16 +1,19 @@
 import { Metadata } from 'next';
-import { AdminForm } from '@/src/components/admin/admin-form';
+
+import { AdminDashboard } from '@/src/components/admin/admin-dashboard';
 import { SignOutButton } from '@/src/components/admin/sign-out-button';
+import { getAdminSceneList } from '@/src/lib/supabase';
 
 export const metadata: Metadata = {
   title: 'Admin — The Zen Zone',
-  description: 'Add new scenes to The Zen Zone',
+  description: 'Add and manage scenes for The Zen Zone',
 };
 
-export default function AdminPage() {
+export default async function AdminPage() {
+  const scenes = await getAdminSceneList();
+
   return (
     <main className="min-h-screen bg-background">
-      {/* Header */}
       <header className="border-b border-border">
         <div className="mx-auto flex max-w-3xl items-center justify-between px-6 py-6">
           <h1 className="text-sm font-light tracking-widest uppercase text-foreground">
@@ -28,19 +31,8 @@ export default function AdminPage() {
         </div>
       </header>
 
-      {/* Content */}
       <div className="mx-auto max-w-3xl px-6 py-12">
-        <div className="mb-12">
-          <h2 className="text-2xl font-light tracking-wide text-foreground">
-            Add New Scene
-          </h2>
-          <div className="mt-3 h-px w-12 bg-accent" />
-          <p className="mt-4 text-sm text-muted-foreground leading-relaxed">
-            Create a new ambient scene by filling out the form below. All fields are required.
-          </p>
-        </div>
-
-        <AdminForm />
+        <AdminDashboard scenes={scenes} />
       </div>
     </main>
   );

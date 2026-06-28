@@ -1,5 +1,5 @@
 import 'server-only';
-import { S3Client } from '@aws-sdk/client-s3';
+import { DeleteObjectCommand, S3Client } from '@aws-sdk/client-s3';
 
 // ---------------------------------------------------------------------------
 // R2 S3-compatible client (server-only)
@@ -43,5 +43,25 @@ export function getSceneThumbnailUrl(sceneId: string): string {
  */
 export function getTextureUrl(filename: string): string {
   return `${TEXTURES_PUBLIC_URL}/${filename}`;
+}
+
+/** R2 object key for a scene's video file. */
+export function getSceneVideoKey(sceneId: string): string {
+  return `scenes/${sceneId}/video.mp4`;
+}
+
+/** Deletes a scene's video.mp4 from R2. No-op if the object is already gone. */
+export async function deleteSceneVideo(sceneId: string): Promise<void> {
+  const bucket = process.env.R2_BUCKET_SCENES;
+  if (!bucket) {
+    throw new Error('R2_BUCKET_SCENES is not set');
+  }
+
+  await r2.send(
+    new DeleteObjectCommand({
+      Bucket: bucket,
+      Key: getSceneVideoKey(sceneId),
+    }),
+  );
 }
 

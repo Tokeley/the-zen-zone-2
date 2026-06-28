@@ -5,13 +5,26 @@ import Link from 'next/link';
 import { Scene } from '@/src/data/textures';
 import { AudioMixer } from '@/src/components/audio-mixer/audio-mixer';
 import { PomodoroTimer } from '@/src/components/pomodoro/pomodoro-timer';
+import {
+  claimSceneVideoPreload,
+  consumeMapSceneEntry,
+} from '@/src/lib/scene-video-preload';
 
 interface ScenePlayerProps {
   scene: Scene;
 }
 
+function buildVideoClassName(isVideoLoaded: boolean, hasEntered: boolean): string {
+  return [
+    'absolute inset-0 h-full w-full object-cover transition-[opacity,transform] ease-out',
+    isVideoLoaded ? 'opacity-100' : 'opacity-0',
+    hasEntered ? 'scale-100 duration-[1400ms]' : 'scale-[1.12] duration-[1400ms]',
+  ].join(' ');
+}
+
 export function ScenePlayer({ scene }: ScenePlayerProps) {
-  const videoRef = useRef<HTMLVideoElement>(null);
+  const videoHostRef = useRef<HTMLDivElement>(null);
+  const videoRef = useRef<HTMLVideoElement | null>(null);
   const [isVideoLoaded, setIsVideoLoaded] = useState(false);
   const [hasEntered, setHasEntered] = useState(false);
   const [mixerOpen, setMixerOpen] = useState(false);
@@ -36,43 +49,68 @@ export function ScenePlayer({ scene }: ScenePlayerProps) {
   }, []);
 
   useEffect(() => {
-    // Slight delay so the browser can paint the scaled-up starting state first
     const raf = requestAnimationFrame(() => {
       requestAnimationFrame(() => setHasEntered(true));
     });
     return () => cancelAnimationFrame(raf);
   }, []);
 
+  // Mount video — reuse map preloaded element when entering from the map zoom
   useEffect(() => {
-    if (videoRef.current) {
-      videoRef.current.play().catch(() => {});
+    const host = videoHostRef.current;
+    if (!host) return;
+
+    const fromMap = consumeMapSceneEntry(scene.id);
+    const preloaded = fromMap ? claimSceneVideoPreload(scene.id) : null;
+    const owned = !preloaded;
+
+    const video = preloaded ?? document.createElement('video');
+    if (owned) {
+      video.src = scene.videoUrl;
     }
-  }, []);
+
+    video.loop = true;
+    video.muted = true;
+    video.playsInline = true;
+    video.crossOrigin = 'anonymous';
+    video.className = buildVideoClassName(false, false);
+
+    host.replaceChildren(video);
+    videoRef.current = video;
+
+    const markLoaded = () => setIsVideoLoaded(true);
+    if (video.readyState >= HTMLMediaElement.HAVE_CURRENT_DATA) {
+      markLoaded();
+    } else {
+      video.addEventListener('loadeddata', markLoaded, { once: true });
+    }
+
+    video.play().catch(() => {});
+
+    return () => {
+      video.removeEventListener('loadeddata', markLoaded);
+      video.pause();
+      video.remove();
+      videoRef.current = null;
+    };
+  }, [scene.id, scene.videoUrl]);
+
+  useEffect(() => {
+    const video = videoRef.current;
+    if (!video) return;
+    video.className = buildVideoClassName(isVideoLoaded, hasEntered);
+  }, [isVideoLoaded, hasEntered]);
 
   return (
     <div className="relative h-screen w-full overflow-hidden">
-      {/* Video Background — starts slightly zoomed in and settles to fill */}
-      <video
-        ref={videoRef}
-        src={scene.videoUrl}
-        className={`absolute inset-0 h-full w-full object-cover transition-[opacity,transform] ease-out ${
-          isVideoLoaded ? 'opacity-100' : 'opacity-0'
-        } ${hasEntered ? 'scale-100 duration-[1400ms]' : 'scale-[1.12] duration-[1400ms]'}`}
-        loop
-        muted
-        playsInline
-        crossOrigin="anonymous"
-        onLoadedData={() => setIsVideoLoaded(true)}
-      />
+      <div ref={videoHostRef} className="absolute inset-0" />
 
-      {/* Loading State */}
       {!isVideoLoaded && (
         <div className="absolute inset-0 flex items-center justify-center bg-black">
           <div className="h-6 w-6 animate-spin rounded-full border-2 border-white/40 border-t-white" />
         </div>
       )}
 
-      {/* Entrance reveal — black curtain that fades away once the page mounts */}
       <div
         aria-hidden
         className={`pointer-events-none absolute inset-0 z-40 bg-black transition-opacity duration-700 ${
@@ -80,10 +118,8 @@ export function ScenePlayer({ scene }: ScenePlayerProps) {
         }`}
       />
 
-      {/* Overlay gradient for text legibility */}
       <div className="absolute inset-0 bg-gradient-to-b from-foreground/20 via-transparent to-foreground/40" />
 
-      {/* Navigation */}
       <nav className="absolute left-0 right-0 top-0 z-10 flex items-center justify-between p-6">
         <Link
           href="/"
@@ -92,16 +128,14 @@ export function ScenePlayer({ scene }: ScenePlayerProps) {
           <ArrowLeftIcon className="h-4 w-4" />
           <span className="hidden sm:inline">Back to Map</span>
         </Link>
-        
+
         <h1 className="text-sm font-light tracking-widest uppercase text-card/90">
           {scene.title}
         </h1>
       </nav>
 
-      {/* Audio Mixer */}
       <AudioMixer scene={scene} videoRef={videoRef} isOpen={mixerOpen} onToggle={toggleMixer} />
 
-      {/* Pomodoro Timer */}
       <PomodoroTimer isOpen={pomodoroOpen} onToggle={togglePomodoro} />
     </div>
   );

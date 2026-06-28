@@ -22,5 +22,5 @@ export async function middleware(request: NextRequest) {
 
 export const config = {
   // Exclude /api/admin/upload — large video bodies must not pass through middleware buffering
-  matcher: ['/admin', '/admin/:path*', '/api/admin/scenes'],
+  matcher: ['/admin', '/admin/:path*', '/api/admin/scenes', '/api/admin/scenes/:path*'],
 };

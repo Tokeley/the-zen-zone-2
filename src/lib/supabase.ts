@@ -126,3 +126,30 @@ export async function getSceneById(id: string): Promise<Scene | null> {
 
   return rowToScene(data);
 }
+
+export type AdminSceneListItem = {
+  id: string;
+  title: string;
+  thumbnailUrl: string;
+  createdAt: string;
+};
+
+/** Scenes for the admin manage list (newest first). */
+export async function getAdminSceneList(): Promise<AdminSceneListItem[]> {
+  const { data, error } = await supabase
+    .from('scenes')
+    .select('id, title, thumbnail_url, created_at')
+    .order('created_at', { ascending: false });
+
+  if (error) {
+    console.error('[supabase] getAdminSceneList error:', error.message);
+    return [];
+  }
+
+  return (data ?? []).map((row) => ({
+    id: row.id,
+    title: row.title,
+    thumbnailUrl: row.thumbnail_url ?? '',
+    createdAt: row.created_at,
+  }));
+}

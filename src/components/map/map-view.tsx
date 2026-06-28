@@ -4,6 +4,11 @@ import { useRef, useState, useCallback, useEffect } from 'react';
 import Image from 'next/image';
 import Map, { Marker, Popup, MapRef } from 'react-map-gl';
 import type { Scene } from '@/src/data/textures';
+import {
+  markMapSceneEntry,
+  preloadSceneVideo,
+  releaseSceneVideoPreload,
+} from '@/src/lib/scene-video-preload';
 import { useRouter } from 'next/navigation';
 import 'mapbox-gl/dist/mapbox-gl.css';
 
@@ -99,11 +104,24 @@ export function MapView({ scenes, onSearchOpen }: MapViewProps) {
   }, [spinGlobe]);
 
   const handleMarkerClick = useCallback((scene: Scene) => {
-    setSelectedScene(scene);
+    setSelectedScene((prev) => {
+      if (prev && prev.id !== scene.id) {
+        releaseSceneVideoPreload(prev.id);
+      }
+      return scene;
+    });
+    preloadSceneVideo(scene.id, scene.videoUrl);
     mapRef.current?.flyTo({
       center: [scene.lng, scene.lat],
       zoom: 5,
       duration: 1200,
+    });
+  }, []);
+
+  const handlePopupClose = useCallback(() => {
+    setSelectedScene((prev) => {
+      if (prev) releaseSceneVideoPreload(prev.id);
+      return null;
     });
   }, []);
 
@@ -130,6 +148,7 @@ export function MapView({ scenes, onSearchOpen }: MapViewProps) {
 
     // Navigate once the overlay has fully covered the screen
     const sceneId = selectedScene.id;
+    markMapSceneEntry(sceneId);
     setTimeout(() => {
       router.push(`/scene/${sceneId}`);
     }, 750);
@@ -263,7 +282,7 @@ export function MapView({ scenes, onSearchOpen }: MapViewProps) {
             anchor="bottom"
             offset={20}
             closeOnClick={false}
-            onClose={() => setSelectedScene(null)}
+            onClose={handlePopupClose}
             className="zen-popup"
           >
             <div className="w-full">
