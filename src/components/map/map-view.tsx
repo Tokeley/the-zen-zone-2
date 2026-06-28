@@ -24,6 +24,8 @@ const INITIAL_FIRST_LOAD = {
 };
 
 const SECONDS_PER_REVOLUTION = 120;
+/** Minimum zoom when selecting a pin — only zoom in if the map is more zoomed out than this. */
+const PIN_SELECT_ZOOM = 5;
 
 function getSavedViewState(): {
   longitude: number;
@@ -75,7 +77,7 @@ export function MapView({ scenes, onSearchOpen }: MapViewProps) {
     const map = mapRef.current?.getMap?.();
     if (!map || userHasInteractedRef.current || !shouldAutoSpin.current) return;
     const zoom = map.getZoom();
-    if (zoom >= 5) return; // Don't spin when zoomed in
+    if (zoom >= PIN_SELECT_ZOOM) return; // Don't spin when zoomed in
     const distancePerSecond = 360 / SECONDS_PER_REVOLUTION;
     const center = map.getCenter();
     center.lng += distancePerSecond;
@@ -111,9 +113,10 @@ export function MapView({ scenes, onSearchOpen }: MapViewProps) {
       return scene;
     });
     preloadSceneVideo(scene.id, scene.videoUrl);
+    const currentZoom = mapRef.current?.getMap()?.getZoom() ?? PIN_SELECT_ZOOM;
     mapRef.current?.flyTo({
       center: [scene.lng, scene.lat],
-      zoom: 5,
+      zoom: Math.max(currentZoom, PIN_SELECT_ZOOM),
       duration: 1200,
     });
   }, []);
