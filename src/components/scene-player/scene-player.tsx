@@ -61,6 +61,7 @@ export function ScenePlayer({ scene }: ScenePlayerProps) {
         loop
         muted
         playsInline
+        crossOrigin="anonymous"
         onLoadedData={() => setIsVideoLoaded(true)}
       />
 
@@ -98,7 +99,7 @@ export function ScenePlayer({ scene }: ScenePlayerProps) {
       </nav>
 
       {/* Audio Mixer */}
-      <AudioMixer scene={scene} isOpen={mixerOpen} onToggle={toggleMixer} />
+      <AudioMixer scene={scene} videoRef={videoRef} isOpen={mixerOpen} onToggle={toggleMixer} />
 
       {/* Pomodoro Timer */}
       <PomodoroTimer isOpen={pomodoroOpen} onToggle={togglePomodoro} />

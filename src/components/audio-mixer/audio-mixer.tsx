@@ -1,18 +1,23 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, type RefObject } from 'react';
 import { Scene, textures } from '@/src/data/textures';
 import { useAudioEngine } from '@/src/lib/audio-engine';
 import { VolumeSlider } from './volume-slider';
 
 interface AudioMixerProps {
   scene: Scene;
+  videoRef: RefObject<HTMLVideoElement | null>;
   isOpen?: boolean;
   onToggle?: () => void;
 }
 
-export function AudioMixer({ scene, isOpen, onToggle }: AudioMixerProps) {
-  const engine = useAudioEngine(scene.id, scene.audioUrl, textures);
+export function AudioMixer({ scene, videoRef, isOpen, onToggle }: AudioMixerProps) {
+  const engine = useAudioEngine(
+    scene.id,
+    { videoRef, videoUrl: scene.videoUrl, audioUrl: scene.audioUrl },
+    textures,
+  );
   const [internalExpanded, setInternalExpanded] = useState(false);
 
   const isExpanded = isOpen !== undefined ? isOpen : internalExpanded;

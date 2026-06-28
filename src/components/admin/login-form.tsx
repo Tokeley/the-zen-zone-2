@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { useSearchParams } from 'next/navigation';
-import { createSupabaseBrowserClient } from '@/src/lib/supabase-browser';
+import { createClient } from '@/src/lib/supabase/client';
 
 type Step = 'idle' | 'sending' | 'sent' | 'error';
 
@@ -22,7 +22,7 @@ export function LoginForm() {
     setStep('sending');
     setErrorMessage('');
 
-    const supabase = createSupabaseBrowserClient();
+    const supabase = createClient();
     const { error } = await supabase.auth.signInWithOtp({
       email,
       options: {

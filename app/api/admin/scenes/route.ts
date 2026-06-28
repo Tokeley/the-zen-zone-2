@@ -23,7 +23,9 @@ export async function POST(req: NextRequest) {
 
   const { id, title, description, lat, lng, videoUrl, audioUrl, thumbnailUrl, tags } = body;
 
-  if (!id || !title || !description || lat == null || lng == null || !videoUrl || !audioUrl) {
+  const resolvedAudioUrl = audioUrl ?? videoUrl;
+
+  if (!id || !title || !description || lat == null || lng == null || !videoUrl || !resolvedAudioUrl) {
     return NextResponse.json({ error: 'Missing required fields' }, { status: 400 });
   }
 
@@ -40,7 +42,7 @@ export async function POST(req: NextRequest) {
       lat,
       lng,
       video_url: videoUrl,
-      audio_url: audioUrl,
+      audio_url: resolvedAudioUrl,
       thumbnail_url: thumbnailUrl ?? null,
       tags: (tags ?? []) as SceneTag[],
     })

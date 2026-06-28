@@ -3,6 +3,7 @@
 import { useState, useRef, useCallback, DragEvent, ChangeEvent } from 'react';
 import Map, { Marker, MapLayerMouseEvent } from 'react-map-gl';
 import { filterGroups, type SceneTag } from '@/src/data/textures';
+import { extractVideoThumbnail } from '@/src/lib/video-thumbnail';
 import 'mapbox-gl/dist/mapbox-gl.css';
 
 // ---------------------------------------------------------------------------
@@ -12,15 +13,13 @@ import 'mapbox-gl/dist/mapbox-gl.css';
 type UploadStep =
   | 'idle'
   | 'uploading-video'
-  | 'uploading-audio'
   | 'uploading-thumbnail'
   | 'saving-scene'
   | 'done'
   | 'error';
 
 interface UploadProgress {
-  video: 'pending' | 'uploading' | 'done' | 'skipped';
-  audio: 'pending' | 'uploading' | 'done';
+  video: 'pending' | 'uploading' | 'done';
   thumbnail: 'pending' | 'uploading' | 'done' | 'skipped';
 }
 
@@ -240,7 +239,6 @@ function FileDropZone({ label, accept, hint, file, disabled, onFile }: FileDropZ
 function UploadProgressDisplay({ progress, step }: { progress: UploadProgress; step: UploadStep }) {
   const steps = [
     { key: 'video', label: 'Video', state: progress.video },
-    { key: 'audio', label: 'Audio', state: progress.audio },
     { key: 'thumbnail', label: 'Thumbnail', state: progress.thumbnail },
     { key: 'scene', label: 'Scene', state: step === 'saving-scene' ? 'uploading' : step === 'done' ? 'done' : 'pending' },
   ] as const;
@@ -290,13 +288,10 @@ export function AdminForm() {
   const [tags, setTags] = useState<Set<SceneTag>>(new Set());
 
   const [videoFile, setVideoFile] = useState<File | null>(null);
-  const [audioFile, setAudioFile] = useState<File | null>(null);
-  const [thumbnailFile, setThumbnailFile] = useState<File | null>(null);
 
   const [step, setStep] = useState<UploadStep>('idle');
   const [progress, setProgress] = useState<UploadProgress>({
     video: 'pending',
-    audio: 'pending',
     thumbnail: 'pending',
   });
   const [errorMessage, setErrorMessage] = useState('');
@@ -328,46 +323,34 @@ export function AdminForm() {
       setStep('error');
       return;
     }
-    if (!audioFile) {
-      setErrorMessage('An audio file is required');
+    if (!videoFile) {
+      setErrorMessage('A video file is required');
       setStep('error');
       return;
     }
 
     setStep('uploading-video');
-    setProgress({ video: 'pending', audio: 'pending', thumbnail: 'pending' });
+    setProgress({ video: 'pending', thumbnail: 'pending' });
     setErrorMessage('');
 
     const sceneId = generateSceneId();
     let videoUrl = '';
-    let audioUrl = '';
     let thumbnailUrl = '';
 
     try {
-      // Upload video
-      if (videoFile) {
-        setProgress((p) => ({ ...p, video: 'uploading' }));
-        videoUrl = await uploadFile(sceneId, 'video', videoFile);
-        setProgress((p) => ({ ...p, video: 'done' }));
-      } else {
-        setProgress((p) => ({ ...p, video: 'skipped' }));
-      }
+      setProgress((p) => ({ ...p, video: 'uploading' }));
+      videoUrl = await uploadFile(sceneId, 'video', videoFile);
+      setProgress((p) => ({ ...p, video: 'done' }));
 
-      // Upload audio
-      setStep('uploading-audio');
-      setProgress((p) => ({ ...p, audio: 'uploading' }));
-      audioUrl = await uploadFile(sceneId, 'audio', audioFile);
-      setProgress((p) => ({ ...p, audio: 'done' }));
+      // Scene audio is muxed in the video — same URL in the database
+      const audioUrl = videoUrl;
 
-      // Upload thumbnail
+      // Upload thumbnail (first frame of video)
       setStep('uploading-thumbnail');
-      if (thumbnailFile) {
-        setProgress((p) => ({ ...p, thumbnail: 'uploading' }));
-        thumbnailUrl = await uploadFile(sceneId, 'thumbnail', thumbnailFile);
-        setProgress((p) => ({ ...p, thumbnail: 'done' }));
-      } else {
-        setProgress((p) => ({ ...p, thumbnail: 'skipped' }));
-      }
+      setProgress((p) => ({ ...p, thumbnail: 'uploading' }));
+      const thumbnailFile = await extractVideoThumbnail(videoFile);
+      thumbnailUrl = await uploadFile(sceneId, 'thumbnail', thumbnailFile);
+      setProgress((p) => ({ ...p, thumbnail: 'done' }));
 
       // Save scene to Supabase
       setStep('saving-scene');
@@ -402,8 +385,6 @@ export function AdminForm() {
       setLng('');
       setTags(new Set());
       setVideoFile(null);
-      setAudioFile(null);
-      setThumbnailFile(null);
     } catch (err) {
       setErrorMessage(err instanceof Error ? err.message : 'Unknown error');
       setStep('error');
@@ -498,30 +479,12 @@ export function AdminForm() {
         <p className="text-xs font-light tracking-wider uppercase text-muted-foreground">Files</p>
 
         <FileDropZone
-          label="Video"
+          label="Video *"
           accept="video/mp4,video/webm,video/quicktime"
-          hint="MP4 recommended · max ~500 MB"
+          hint="MP4 with audio · max ~500 MB · thumbnail from first frame"
           file={videoFile}
           disabled={isUploading}
           onFile={setVideoFile}
-        />
-
-        <FileDropZone
-          label="Audio *"
-          accept="audio/mpeg,audio/mp4,audio/wav,audio/ogg"
-          hint="MP3 recommended · ambient scene audio"
-          file={audioFile}
-          disabled={isUploading}
-          onFile={setAudioFile}
-        />
-
-        <FileDropZone
-          label="Thumbnail"
-          accept="image/jpeg,image/webp,image/png"
-          hint="JPG or WebP · 800 × 600 px recommended"
-          file={thumbnailFile}
-          disabled={isUploading}
-          onFile={setThumbnailFile}
         />
       </section>
 
@@ -547,7 +510,7 @@ export function AdminForm() {
       {/* Submit */}
       <button
         type="submit"
-        disabled={isUploading || !audioFile || !title || !description || !lat || !lng}
+        disabled={isUploading || !videoFile || !title || !description || !lat || !lng}
         className="group flex items-center gap-3 rounded-full border border-foreground bg-foreground px-8 py-3 text-sm font-light tracking-wider uppercase text-background transition-all hover:bg-transparent hover:text-foreground disabled:opacity-40 disabled:cursor-not-allowed"
       >
         {isUploading ? (

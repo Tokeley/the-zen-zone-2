@@ -81,3 +81,13 @@ export interface Scene {
   tags: SceneTag[];
 }
 
+/** True when scene audio is muxed in the video (no separate audio file). */
+export function sceneUsesVideoAudio(scene: Pick<Scene, 'videoUrl' | 'audioUrl'>): boolean {
+  return !!scene.videoUrl && (!scene.audioUrl || scene.audioUrl === scene.videoUrl);
+}
+
+/** URL for legacy separate-audio scenes; falls back to video. */
+export function getSceneFallbackAudioUrl(scene: Pick<Scene, 'videoUrl' | 'audioUrl'>): string {
+  return scene.audioUrl || scene.videoUrl;
+}
+

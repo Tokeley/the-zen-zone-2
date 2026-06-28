@@ -5,21 +5,21 @@
  *
  * Audio graph per scene:
  *
- *   [<audio> scene]  → [masterGain] ─┐
- *   [BufferSource L1] → [layerGain1] ─┤→ [AudioContext.destination]
- *   [BufferSource L2] → [layerGain2] ─┤
- *   ...                               ┘
+ *   [<video> or <audio> scene] → [masterGain] ─┐
+ *   [BufferSource L1] → [layerGain1] ──────────┤→ [AudioContext.destination]
+ *   [BufferSource L2] → [layerGain2] ──────────┤
+ *   ...                                        ┘
  *
  * - AudioContext is created lazily on the first user gesture (iOS-safe).
- * - Scene audio uses createMediaElementSource so large files stream rather
- *   than buffer entirely in memory.
- * - Texture layers are fetched + decoded into AudioBuffers on first enable
- *   and reused for the lifetime of the component.
+ * - New scenes route the video element's audio through masterGain.
+ * - Legacy scenes with a separate audio.mp3 use a hidden <audio> element.
+ * - Texture layers are fetched + decoded into AudioBuffers on first enable.
  * - Mix state is persisted to localStorage via src/lib/session.ts.
  */
 
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useState, type RefObject } from 'react';
 import type { AmbientSound } from '@/src/data/textures';
+import { sceneUsesVideoAudio } from '@/src/data/textures';
 import { loadMixState, makeDefaultMixState, saveMixState, type MixState } from './session';
 
 // ─── Public types ─────────────────────────────────────────────────────────────
@@ -45,6 +45,12 @@ export interface UseAudioEngineReturn {
   setLayerVolume: (id: string, v: number) => void;
 }
 
+export interface SceneMediaConfig {
+  videoRef: RefObject<HTMLVideoElement | null>;
+  videoUrl: string;
+  audioUrl: string;
+}
+
 // ─── Internal types ──────────────────────────────────────────────────────────
 
 interface LayerNode {
@@ -60,27 +66,30 @@ interface EngineCallbacks {
 }
 
 // ─── AudioEngineCore class ────────────────────────────────────────────────────
-// Holds all Web Audio API objects. Stored in a React ref so it survives
-// re-renders without recreating the audio graph.
 
 class AudioEngineCore {
   private ctx: AudioContext | null = null;
   private masterGain: GainNode | null = null;
-  private sceneAudio: HTMLAudioElement | null = null;
+  private sceneMedia: HTMLMediaElement | null = null;
+  private detachedAudio: HTMLAudioElement | null = null;
   private layerNodes = new Map<string, LayerNode>();
 
   private ready = false;
   private playing = false;
   private mixState: MixState;
+  private readonly useVideoAudio: boolean;
 
   constructor(
     private readonly sceneId: string,
-    private readonly sceneAudioUrl: string,
+    private readonly getVideoElement: () => HTMLVideoElement | null,
+    private readonly fallbackAudioUrl: string,
+    private readonly useVideoAudioFlag: boolean,
     private readonly textureDefs: AmbientSound[],
     initialMixState: MixState,
-    private readonly cbs: EngineCallbacks
+    private readonly cbs: EngineCallbacks,
   ) {
     this.mixState = initialMixState;
+    this.useVideoAudio = useVideoAudioFlag;
   }
 
   // ── Graph initialisation ──────────────────────────────────────────────────
@@ -91,13 +100,11 @@ class AudioEngineCore {
     const ctx = new AudioContext();
     this.ctx = ctx;
 
-    // Master gain → destination
     const masterGain = ctx.createGain();
     masterGain.gain.value = this.mixState.master / 100;
     masterGain.connect(ctx.destination);
     this.masterGain = masterGain;
 
-    // One gain node per texture layer, all silent until enabled
     this.textureDefs.forEach((t) => {
       const gainNode = ctx.createGain();
       gainNode.gain.value = 0;
@@ -105,15 +112,26 @@ class AudioEngineCore {
       this.layerNodes.set(t.id, { gainNode, source: null, buffer: null });
     });
 
-    // Scene audio: stream via <audio> element to avoid buffering large files
-    const audio = new Audio();
-    audio.src = this.sceneAudioUrl;
-    audio.loop = true;
-    // crossOrigin required to use the element with Web Audio API + R2
-    audio.crossOrigin = 'anonymous';
-    this.sceneAudio = audio;
+    let media: HTMLMediaElement;
 
-    const mediaSource = ctx.createMediaElementSource(audio);
+    if (this.useVideoAudio) {
+      const video = this.getVideoElement();
+      if (!video) {
+        throw new Error('[AudioEngine] Video element not available');
+      }
+      video.crossOrigin = 'anonymous';
+      media = video;
+    } else {
+      const audio = new Audio();
+      audio.src = this.fallbackAudioUrl;
+      audio.loop = true;
+      audio.crossOrigin = 'anonymous';
+      this.detachedAudio = audio;
+      media = audio;
+    }
+
+    this.sceneMedia = media;
+    const mediaSource = ctx.createMediaElementSource(media);
     mediaSource.connect(masterGain);
 
     return ctx;
@@ -152,12 +170,11 @@ class AudioEngineCore {
     const node = this.layerNodes.get(id);
     if (!this.ctx || !node) return;
 
-    // Load buffer on first enable
     if (!node.buffer) {
       this.cbs.onLayerLoading(id, true);
       node.buffer = await this.fetchBuffer(url);
       this.cbs.onLayerLoading(id, false);
-      if (!node.buffer) return; // load failed — stay disabled
+      if (!node.buffer) return;
     }
 
     this.stopLayerSource(node);
@@ -171,6 +188,17 @@ class AudioEngineCore {
     node.gainNode.gain.value = volume / 100;
   }
 
+  private async ensureSceneMediaPlaying() {
+    const media = this.sceneMedia;
+    if (!media) return;
+
+    if (this.useVideoAudio && media instanceof HTMLVideoElement) {
+      media.muted = false;
+    }
+
+    await media.play().catch((e) => console.warn('[AudioEngine] Scene play blocked:', e));
+  }
+
   // ── Persist ───────────────────────────────────────────────────────────────
 
   private persist() {
@@ -182,22 +210,17 @@ class AudioEngineCore {
 
   async toggle() {
     if (!this.ready) {
-      // First interaction — boot the audio graph (required for iOS)
       const ctx = this.initCtx();
       if (ctx.state === 'suspended') await ctx.resume();
-      await this.sceneAudio?.play().catch((e) =>
-        console.warn('[AudioEngine] Scene play blocked:', e)
-      );
+      await this.ensureSceneMediaPlaying();
       this.ready = true;
       this.playing = true;
       this.cbs.onPlayState(true, true);
 
-      // Restore any layers that were enabled in the saved session
       for (const [id, layerState] of Object.entries(this.mixState.layers)) {
         if (layerState.enabled) {
           const def = this.textureDefs.find((t) => t.id === id);
           if (def) {
-            // Fire-and-forget; loading indicators handled via callbacks
             this.startLayerSource(id, def.audioUrl, layerState.volume);
           }
         }
@@ -206,12 +229,16 @@ class AudioEngineCore {
     }
 
     if (this.playing) {
-      this.sceneAudio?.pause();
+      if (!this.useVideoAudio) {
+        this.sceneMedia?.pause();
+      }
       await this.ctx?.suspend();
       this.playing = false;
     } else {
       await this.ctx?.resume();
-      await this.sceneAudio?.play().catch(() => {});
+      if (!this.useVideoAudio) {
+        await this.sceneMedia?.play().catch(() => {});
+      }
       this.playing = true;
     }
     this.cbs.onPlayState(this.ready, this.playing);
@@ -229,7 +256,6 @@ class AudioEngineCore {
     const def = this.textureDefs.find((t) => t.id === id);
     if (!def) return;
 
-    // Boot audio context if not yet started
     if (!this.ready) {
       await this.toggle();
     }
@@ -274,18 +300,16 @@ class AudioEngineCore {
     this.persist();
   }
 
-  /**
-   * Overwrites the engine's internal mix state without affecting any active
-   * audio nodes. Safe to call before the AudioContext has been started (i.e.
-   * before the first user gesture / toggle() call).
-   */
   syncMixState(state: MixState) {
     this.mixState = state;
     this.cbs.onMixState(state);
   }
 
   destroy() {
-    this.sceneAudio?.pause();
+    if (!this.useVideoAudio) {
+      this.sceneMedia?.pause();
+    }
+    this.detachedAudio = null;
     this.layerNodes.forEach((node) => this.stopLayerSource(node));
     this.ctx?.close().catch(() => {});
   }
@@ -295,76 +319,65 @@ class AudioEngineCore {
 
 export function useAudioEngine(
   sceneId: string,
-  sceneAudioUrl: string,
-  textureDefs: AmbientSound[]
+  media: SceneMediaConfig,
+  textureDefs: AmbientSound[],
 ): UseAudioEngineReturn {
   const layerIds = textureDefs.map((t) => t.id);
+  const useVideoAudio = sceneUsesVideoAudio(media);
+  const fallbackAudioUrl = media.audioUrl || media.videoUrl;
 
   const [isReady, setIsReady] = useState(false);
   const [isPlaying, setIsPlaying] = useState(false);
-  // Start with defaults so SSR and the initial client render agree, then load
-  // the real saved mix from localStorage after hydration in a useEffect below.
-  const [mixState, setMixState] = useState<MixState>(() =>
-    makeDefaultMixState(layerIds)
-  );
+  const [mixState, setMixState] = useState<MixState>(() => makeDefaultMixState(layerIds));
   const [loadingSet, setLoadingSet] = useState<ReadonlySet<string>>(new Set());
 
-  // Engine is created once (lazy useState initialiser runs only on first render).
-  // All setState functions passed as callbacks are stable references from React.
   const [engine] = useState(
     () =>
-      new AudioEngineCore(sceneId, sceneAudioUrl, textureDefs, mixState, {
-        onPlayState: (ready, playing) => {
-          setIsReady(ready);
-          setIsPlaying(playing);
+      new AudioEngineCore(
+        sceneId,
+        () => media.videoRef.current,
+        fallbackAudioUrl,
+        useVideoAudio,
+        textureDefs,
+        mixState,
+        {
+          onPlayState: (ready, playing) => {
+            setIsReady(ready);
+            setIsPlaying(playing);
+          },
+          onLayerLoading: (id, loading) => {
+            setLoadingSet((prev) => {
+              const next = new Set(prev);
+              if (loading) next.add(id);
+              else next.delete(id);
+              return next;
+            });
+          },
+          onMixState: setMixState,
         },
-        onLayerLoading: (id, loading) => {
-          setLoadingSet((prev) => {
-            const next = new Set(prev);
-            if (loading) next.add(id);
-            else next.delete(id);
-            return next;
-          });
-        },
-        onMixState: setMixState,
-      })
+      ),
   );
 
-  // Destroy on unmount
   useEffect(() => () => engine.destroy(), [engine]);
 
-  // Load the saved mix from localStorage after hydration so the initial SSR
-  // render (which uses defaults) matches the first client render.
   useEffect(() => {
     const saved = loadMixState(sceneId, layerIds);
     engine.syncMixState(saved);
-  // layerIds is derived from textureDefs which is stable; sceneId won't change
-  // for the lifetime of this component instance.
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [engine, sceneId]);
-
-  // ── Stable public callbacks ───────────────────────────────────────────────
 
   const toggle = useCallback(() => {
     engine.toggle();
   }, [engine]);
 
-  const setMasterVolume = useCallback(
-    (v: number) => engine.setMasterVolume(v),
-    [engine]
-  );
+  const setMasterVolume = useCallback((v: number) => engine.setMasterVolume(v), [engine]);
 
-  const toggleLayer = useCallback(
-    (id: string) => engine.toggleLayer(id),
-    [engine]
-  );
+  const toggleLayer = useCallback((id: string) => engine.toggleLayer(id), [engine]);
 
   const setLayerVolume = useCallback(
     (id: string, v: number) => engine.setLayerVolume(id, v),
-    [engine]
+    [engine],
   );
-
-  // ── Derived layer states ──────────────────────────────────────────────────
 
   const layers: LayerState[] = textureDefs.map((t) => ({
     id: t.id,
