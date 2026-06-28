@@ -87,7 +87,7 @@ export function ScenePlayer({ scene }: ScenePlayerProps) {
       <nav className="absolute left-0 right-0 top-0 z-10 flex items-center justify-between p-6">
         <Link
           href="/"
-          className="flex items-center gap-2 text-sm font-light tracking-widest uppercase text-card transition-colors hover:text-accent"
+          className="flex items-center gap-2 text-sm font-light tracking-widest uppercase text-white"
         >
           <ArrowLeftIcon className="h-4 w-4" />
           <span className="hidden sm:inline">Back to Map</span>

@@ -47,15 +47,13 @@ export function PomodoroTimer({ isOpen, onToggle }: PomodoroTimerProps) {
         </button>
       </div>
 
-      {/* Expandable panel */}
+      {/* Expandable panel — pointer-events-none on overlay so mixer controls stay clickable */}
       <div
-        className={`fixed inset-0 flex items-center justify-center transition-opacity duration-300 ease-out pointer-events-none ${
-          isExpanded ? 'opacity-100' : 'opacity-0'
+        className={`fixed inset-0 flex items-center justify-center pointer-events-none ${
+          isExpanded ? 'visible' : 'invisible'
         }`}
       >
-        <div className={isExpanded ? 'pointer-events-auto' : 'pointer-events-none'}>
-          <TimerPanel timer={timer} />
-        </div>
+        <TimerPanel timer={timer} isVisible={isExpanded} />
       </div>
     </div>
   );
@@ -65,26 +63,28 @@ export function PomodoroTimer({ isOpen, onToggle }: PomodoroTimerProps) {
 
 type Timer = ReturnType<typeof usePomodoro>;
 
-function TimerPanel({ timer }: { timer: Timer }) {
+function TimerPanel({ timer, isVisible }: { timer: Timer; isVisible: boolean }) {
   const subtitle = phaseLabel(timer.phase);
+  const fade =
+    'transition-opacity duration-300 ease-out ' + (isVisible ? 'opacity-100' : 'opacity-0');
 
   return (
-    <div className="flex flex-col items-center gap-8">
+    <div className="pointer-events-auto flex flex-col items-center gap-8">
       <span
-        className="text-sm font-light tracking-widest uppercase text-white/90"
+        className={`text-sm font-light tracking-widest uppercase text-white/90 ${fade}`}
         style={{ textShadow: TEXT_SHADOW_SM }}
       >
         {subtitle}
       </span>
 
       <span
-        className="text-7xl font-normal tabular-nums text-white"
+        className={`text-7xl font-normal tabular-nums text-white ${fade}`}
         style={{ textShadow: TEXT_SHADOW }}
       >
         {formatTime(timer.timeRemaining)}
       </span>
 
-      <div className="flex items-center gap-5">
+      <div className={`flex items-center gap-5 ${fade}`}>
         {Array.from({ length: 4 }, (_, i) => (
           <div
             key={i}
@@ -103,12 +103,8 @@ function TimerPanel({ timer }: { timer: Timer }) {
           else if (timer.status === 'running') timer.pause();
           else timer.resume();
         }}
-        className="mt-1.5 rounded-full border border-white/20 bg-black/35 px-12 py-3.5 text-sm font-light tracking-widest uppercase text-white backdrop-blur-md transition-colors hover:bg-black/45"
-        style={{
-          textShadow: TEXT_SHADOW_SM,
-          backdropFilter: 'blur(12px)',
-          WebkitBackdropFilter: 'blur(12px)',
-        }}
+        className="mt-1.5 rounded-full border border-white/20 bg-black/40 px-12 py-3.5 text-sm font-light tracking-widest uppercase text-white backdrop-blur-md transition-[background-color] duration-150 hover:bg-black/55 [transform:translateZ(0)]"
+        style={{ textShadow: TEXT_SHADOW_SM }}
       >
         {timer.status === 'idle'
           ? 'Start'
