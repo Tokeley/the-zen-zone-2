@@ -11,7 +11,7 @@ A major aspect of The Zen Zone that will be the foundation of its user interface
 
 - **Map view** — Main view is a world map with "scenes" pinned at the location they were recorded
 - **Search overlay** — Magnifying glass icon (top-left or top-right) opens a popup with a traditional grid search: search bar + scene grid. Map remains visible, blurred, in the background. Map view stays primary; search is secondary.
-- **Scene view** — Clicking a pin opens pop-up with scene title, clicking the pop up opens up a scene: full-screen calm video (e.g. river, farmers market, rainy window) with synced ambient audio
+- **Scene view** — Clicking a pin opens pop-up with scene title, clicking the pop up opens up a scene: full-screen calm video loop (muted) with separate ambient audio looped via Web Audio
 - **Custom mix** — Add ambient layers (rain, fire crackle, wind, white noise, ambient chatter) and adjust levels to create a custom mix
 - **No login** — Session tokens persist each user's mix settings when they return
 - **Desktop & mobile** — Responsive design; audio continues in background when the app is minimized on mobile

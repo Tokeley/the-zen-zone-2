@@ -111,8 +111,8 @@ export function SceneList({ scenes: initialScenes }: SceneListProps) {
               Delete &ldquo;{pendingDelete?.title}&rdquo;?
             </DialogTitle>
             <DialogDescription className="leading-relaxed">
-              This removes the scene from the map and deletes its video file from storage.
-              Thumbnails and any legacy audio files are left in place.
+              This removes the scene from the map and deletes its video, audio, and thumbnail
+              files from storage.
             </DialogDescription>
           </DialogHeader>
 

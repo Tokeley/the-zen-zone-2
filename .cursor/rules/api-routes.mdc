@@ -46,7 +46,8 @@ File uploads go to R2 via presigned URL — never stream binary through a Vercel
 
 ```
 scenes/{scene-id}/video.mp4
-scenes/{scene-id}/audio.mp3
+scenes/{scene-id}/audio.{wav|flac|mp3|ogg}
+scenes/{scene-id}/thumbnail.jpg
 textures/rain.mp3
 textures/fire-crackle.mp3
 ```

@@ -9,17 +9,22 @@ import { r2 } from '@/src/lib/r2';
 export const maxDuration = 60;
 
 const MAX_VIDEO_BYTES = 200 * 1024 * 1024;
+const MAX_AUDIO_BYTES = 100 * 1024 * 1024;
 
 const ALLOWED: Record<string, string[]> = {
   video: ['video/mp4', 'video/webm', 'video/quicktime'],
-  audio: ['audio/mpeg', 'audio/mp4', 'audio/wav', 'audio/ogg'],
+  audio: ['audio/mpeg', 'audio/mp4', 'audio/wav', 'audio/x-wav', 'audio/flac', 'audio/x-flac', 'audio/ogg'],
   thumbnail: ['image/jpeg', 'image/webp', 'image/png'],
 };
 
-const KEY_SUFFIX: Record<string, string> = {
-  video: 'video.mp4',
-  audio: 'audio.mp3',
-  thumbnail: 'thumbnail.jpg',
+const AUDIO_EXT_BY_MIME: Record<string, string> = {
+  'audio/mpeg': 'mp3',
+  'audio/mp4': 'm4a',
+  'audio/wav': 'wav',
+  'audio/x-wav': 'wav',
+  'audio/flac': 'flac',
+  'audio/x-flac': 'flac',
+  'audio/ogg': 'ogg',
 };
 
 function normalizeMimeType(type: string): string {
@@ -38,7 +43,9 @@ function resolveMimeType(file: File, fileType: string): string | null {
   }
   if (fileType === 'audio') {
     if (ext === 'mp3') return 'audio/mpeg';
+    if (ext === 'm4a') return 'audio/mp4';
     if (ext === 'wav') return 'audio/wav';
+    if (ext === 'flac') return 'audio/flac';
     if (ext === 'ogg') return 'audio/ogg';
   }
   if (fileType === 'thumbnail') {
@@ -46,6 +53,21 @@ function resolveMimeType(file: File, fileType: string): string | null {
     if (ext === 'webp') return 'image/webp';
     if (ext === 'png') return 'image/png';
   }
+  return null;
+}
+
+function resolveObjectKey(sceneId: string, fileType: string, mimeType: string, fileName: string): string | null {
+  if (fileType === 'video') return `scenes/${sceneId}/video.mp4`;
+  if (fileType === 'thumbnail') return `scenes/${sceneId}/thumbnail.jpg`;
+
+  if (fileType === 'audio') {
+    const extFromMime = AUDIO_EXT_BY_MIME[mimeType];
+    const extFromName = fileName.split('.').pop()?.toLowerCase();
+    const ext = extFromMime ?? extFromName;
+    if (!ext || !['mp3', 'm4a', 'wav', 'flac', 'ogg'].includes(ext)) return null;
+    return `scenes/${sceneId}/audio.${ext}`;
+  }
+
   return null;
 }
 
@@ -102,12 +124,22 @@ export async function POST(req: NextRequest) {
     );
   }
 
+  if (fileType === 'audio' && file.size > MAX_AUDIO_BYTES) {
+    return NextResponse.json(
+      { error: `Audio must be ${MAX_AUDIO_BYTES / (1024 * 1024)} MB or smaller` },
+      { status: 400 },
+    );
+  }
+
   const bucket = process.env.R2_BUCKET_SCENES;
   if (!bucket) {
     return NextResponse.json({ error: 'R2_BUCKET_SCENES env var is not set' }, { status: 500 });
   }
 
-  const key = `scenes/${sceneId}/${KEY_SUFFIX[fileType]}`;
+  const key = resolveObjectKey(sceneId, fileType, mimeType, (file as File).name);
+  if (!key) {
+    return NextResponse.json({ error: 'Could not determine storage key for file' }, { status: 400 });
+  }
 
   try {
     const buffer = Buffer.from(await file.arrayBuffer());
@@ -121,7 +153,7 @@ export async function POST(req: NextRequest) {
     );
 
     const publicUrl = `${process.env.NEXT_PUBLIC_R2_SCENES_URL}/${key}`;
-    return NextResponse.json({ publicUrl });
+    return NextResponse.json({ publicUrl, key });
   } catch (err) {
     console.error('[admin/upload] R2 upload error:', err);
     return NextResponse.json({ error: 'Failed to upload file to R2' }, { status: 500 });

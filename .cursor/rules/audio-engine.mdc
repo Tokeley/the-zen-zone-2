@@ -27,10 +27,14 @@ function getAudioContext() {
 Each audio layer (scene audio + each texture) gets its own `GainNode` feeding into `AudioContext.destination`:
 
 ```
-SceneAudioSource → GainNode (scene) ──┐
-TextureSource (rain) → GainNode ──────┤→ destination
+SceneAudio BufferSource (loop) → GainNode (scene) ──┐
+TextureSource (rain) → GainNode ────────────────────┤→ destination
 TextureSource (fire) → GainNode ──────┘
 ```
+
+## Scene audio looping
+
+Decode scene audio into an `AudioBuffer` and play via `AudioBufferSourceNode` with `loop = true` for sample-accurate loops. Keep the `<video>` muted (picture only). On first play, sync buffer offset to `video.currentTime % buffer.duration` since video may already be playing. Fall back to `MediaElementSource` if decode fails or clip exceeds ~3 minutes.
 
 All mixing logic lives in `src/lib/audio-engine.ts`. Components only call its public API.
 

@@ -3,7 +3,7 @@ import { cookies } from 'next/headers';
 
 import { createClient } from '@/src/lib/supabase/server';
 import { createAdminClient } from '@/src/lib/supabase';
-import { deleteSceneVideo } from '@/src/lib/r2';
+import { deleteSceneAssets } from '@/src/lib/r2';
 
 type RouteContext = { params: Promise<{ id: string }> };
 
@@ -24,10 +24,10 @@ export async function DELETE(_req: NextRequest, context: RouteContext) {
   }
 
   try {
-    await deleteSceneVideo(id);
+    await deleteSceneAssets(id);
   } catch (err) {
     console.error('[admin/scenes] R2 delete error:', err);
-    return NextResponse.json({ error: 'Failed to delete scene video from R2' }, { status: 500 });
+    return NextResponse.json({ error: 'Failed to delete scene files from R2' }, { status: 500 });
   }
 
   const admin = createAdminClient();

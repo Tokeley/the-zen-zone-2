@@ -14,6 +14,7 @@ import 'mapbox-gl/dist/mapbox-gl.css';
 type UploadStep =
   | 'idle'
   | 'uploading-video'
+  | 'uploading-audio'
   | 'uploading-thumbnail'
   | 'saving-scene'
   | 'done'
@@ -21,6 +22,7 @@ type UploadStep =
 
 interface UploadProgress {
   video: 'pending' | 'uploading' | 'done';
+  audio: 'pending' | 'uploading' | 'done';
   thumbnail: 'pending' | 'uploading' | 'done' | 'skipped';
 }
 
@@ -240,6 +242,7 @@ function FileDropZone({ label, accept, hint, file, disabled, onFile }: FileDropZ
 function UploadProgressDisplay({ progress, step }: { progress: UploadProgress; step: UploadStep }) {
   const steps = [
     { key: 'video', label: 'Video', state: progress.video },
+    { key: 'audio', label: 'Audio', state: progress.audio },
     { key: 'thumbnail', label: 'Thumbnail', state: progress.thumbnail },
     { key: 'scene', label: 'Scene', state: step === 'saving-scene' ? 'uploading' : step === 'done' ? 'done' : 'pending' },
   ] as const;
@@ -290,10 +293,12 @@ export function AdminForm() {
   const [tags, setTags] = useState<Set<SceneTag>>(new Set());
 
   const [videoFile, setVideoFile] = useState<File | null>(null);
+  const [audioFile, setAudioFile] = useState<File | null>(null);
 
   const [step, setStep] = useState<UploadStep>('idle');
   const [progress, setProgress] = useState<UploadProgress>({
     video: 'pending',
+    audio: 'pending',
     thumbnail: 'pending',
   });
   const [errorMessage, setErrorMessage] = useState('');
@@ -330,13 +335,19 @@ export function AdminForm() {
       setStep('error');
       return;
     }
+    if (!audioFile) {
+      setErrorMessage('An audio file is required');
+      setStep('error');
+      return;
+    }
 
     setStep('uploading-video');
-    setProgress({ video: 'pending', thumbnail: 'pending' });
+    setProgress({ video: 'pending', audio: 'pending', thumbnail: 'pending' });
     setErrorMessage('');
 
     const sceneId = generateSceneId();
     let videoUrl = '';
+    let audioUrl = '';
     let thumbnailUrl = '';
 
     try {
@@ -344,8 +355,10 @@ export function AdminForm() {
       videoUrl = await uploadFile(sceneId, 'video', videoFile);
       setProgress((p) => ({ ...p, video: 'done' }));
 
-      // Scene audio is muxed in the video — same URL in the database
-      const audioUrl = videoUrl;
+      setStep('uploading-audio');
+      setProgress((p) => ({ ...p, audio: 'uploading' }));
+      audioUrl = await uploadFile(sceneId, 'audio', audioFile);
+      setProgress((p) => ({ ...p, audio: 'done' }));
 
       // Upload thumbnail (first frame of video)
       setStep('uploading-thumbnail');
@@ -388,6 +401,7 @@ export function AdminForm() {
       setLng('');
       setTags(new Set());
       setVideoFile(null);
+      setAudioFile(null);
     } catch (err) {
       setErrorMessage(err instanceof Error ? err.message : 'Unknown error');
       setStep('error');
@@ -484,10 +498,19 @@ export function AdminForm() {
         <FileDropZone
           label="Video *"
           accept="video/mp4,video/webm,video/quicktime"
-          hint="MP4 with audio · max ~200 MB · thumbnail from first frame"
+          hint="MP4 (picture only) · max ~200 MB · thumbnail from first frame"
           file={videoFile}
           disabled={isUploading}
           onFile={setVideoFile}
+        />
+
+        <FileDropZone
+          label="Audio *"
+          accept="audio/wav,audio/flac,audio/mpeg,audio/mp3,.wav,.flac,.mp3"
+          hint="WAV or FLAC for seamless loops · max ~100 MB · played separately from video"
+          file={audioFile}
+          disabled={isUploading}
+          onFile={setAudioFile}
         />
       </section>
 
@@ -513,7 +536,7 @@ export function AdminForm() {
       {/* Submit */}
       <button
         type="submit"
-        disabled={isUploading || !videoFile || !title || !description || !lat || !lng}
+        disabled={isUploading || !videoFile || !audioFile || !title || !description || !lat || !lng}
         className="group flex items-center gap-3 rounded-full border border-foreground bg-foreground px-8 py-3 text-sm font-light tracking-wider uppercase text-background transition-all hover:bg-transparent hover:text-foreground disabled:opacity-40 disabled:cursor-not-allowed"
       >
         {isUploading ? (

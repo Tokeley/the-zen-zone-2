@@ -29,10 +29,13 @@ export function AudioMixer({ scene, videoRef, isOpen, onToggle }: AudioMixerProp
       <div className="flex items-center gap-2">
         <button
           onClick={engine.toggle}
-          className="flex h-12 w-12 items-center justify-center rounded-full border border-white/20 bg-black/30 backdrop-blur-md transition-colors hover:bg-black/40"
+          disabled={engine.sceneLoading}
+          className="flex h-12 w-12 items-center justify-center rounded-full border border-white/20 bg-black/30 backdrop-blur-md transition-colors hover:bg-black/40 disabled:opacity-50"
           aria-label={engine.isPlaying ? 'Pause' : 'Play'}
         >
-          {engine.isPlaying ? (
+          {engine.sceneLoading ? (
+            <SpinnerIcon className="h-5 w-5 animate-spin text-white" />
+          ) : engine.isPlaying ? (
             <PauseIcon className="h-5 w-5 text-white" />
           ) : (
             <PlayIcon className="h-5 w-5 text-white" />

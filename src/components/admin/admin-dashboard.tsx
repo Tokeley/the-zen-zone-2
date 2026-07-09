@@ -47,8 +47,9 @@ export function AdminDashboard({ scenes }: AdminDashboardProps) {
             </h2>
             <div className="mt-3 h-px w-12 bg-accent" />
             <p className="mt-4 text-sm text-muted-foreground leading-relaxed">
-              Upload a video with ambient audio baked in. A thumbnail is captured from the first
-              frame automatically.
+              Upload a silent video loop and a separate lossless audio file (WAV or FLAC).
+              The app plays video muted and loops audio via Web Audio for seamless playback.
+              A thumbnail is captured from the first frame automatically.
             </p>
           </div>
           <AdminForm />
@@ -62,7 +63,7 @@ export function AdminDashboard({ scenes }: AdminDashboardProps) {
             <div className="mt-3 h-px w-12 bg-accent" />
             <p className="mt-4 text-sm text-muted-foreground leading-relaxed">
               {scenes.length} scene{scenes.length === 1 ? '' : 's'} on the map. Deleting removes
-              the database entry and the video file.
+              the database entry and all scene files from storage.
             </p>
           </div>
           <SceneList scenes={scenes} />
