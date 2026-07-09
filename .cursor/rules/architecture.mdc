@@ -29,5 +29,5 @@ alwaysApply: true
 ## Scene media
 
 - Admin uploads **separate video (MP4) and audio (WAV/FLAC/MP3)** files per scene
-- Playback: video muted for picture; scene audio decoded and looped via Web Audio in `src/lib/audio-engine.ts`
-- Legacy scenes with muxed audio (`audioUrl === videoUrl`) still work via fallback decode/fallback path
+- Playback: video muted for picture; scene audio loops via hidden `<audio>` + `MediaElementSource`. Texture layers use `AudioBuffer` loops in `src/lib/audio-engine.ts`
+- Legacy scenes with muxed audio (`audioUrl === videoUrl`) still work via the video element audio path

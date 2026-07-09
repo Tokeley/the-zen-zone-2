@@ -66,7 +66,7 @@ Scene and soundscape files are served from R2 (public bucket URLs stored in Supa
 
 ## Key technical notes
 
-1. **Web Audio API** — Scene audio is decoded into an `AudioBuffer` and looped sample-accurately via `AudioBufferSourceNode` (avoids HTMLMediaElement loop gaps). Video stays muted. Texture layers use the same buffer-loop pattern. Mix levels persist via session token → stored gain values → restore on return. Falls back to `MediaElementSource` if decode fails or clip exceeds ~3 minutes.
+1. **Web Audio API** — Scene audio plays via `MediaElementSource` (hidden `<audio>` for separate WAV/FLAC, or muxed video audio for legacy scenes). Texture layers are decoded into `AudioBuffer`s for seamless looping. Mix levels persist via session token → stored gain values → restore on return.
 2. **Mobile background audio** — Start `AudioContext` on user gesture. Design for PWA / in-app playback where possible.
 3. **Video** — Keep scenes short (1–3 min), compressed. MP4 (H.264) for compatibility. Upload video and audio as separate files in admin.
 4. **Admin** — Protect `/admin` with Supabase Auth (middleware or auth check). Admin uploads video + audio separately to R2 via API route; thumbnail extracted client-side; scene metadata (title, coords, R2 URLs) saved to Supabase. Prefer WAV or FLAC for scene audio (lossless loops).

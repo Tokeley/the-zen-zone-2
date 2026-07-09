@@ -5,26 +5,22 @@
  *
  * Audio graph per scene:
  *
- *   [Scene BufferSource] → [masterGain] ─┐
- *   [BufferSource L1] → [layerGain1] ────┤→ [AudioContext.destination]
- *   [BufferSource L2] → [layerGain2] ────┤
- *   ...                                  ┘
+ *   [<video> or <audio> scene] → [masterGain] ─┐
+ *   [BufferSource L1] → [layerGain1] ──────────┤→ [AudioContext.destination]
+ *   [BufferSource L2] → [layerGain2] ──────────┤
+ *   ...                                        ┘
  *
  * - AudioContext is created lazily on the first user gesture (iOS-safe).
- * - Scene audio is decoded into an AudioBuffer and looped sample-accurately
- *   (avoids the gap from HTMLMediaElement loop seeks). The <video> stays muted.
- * - Falls back to MediaElementSource if decode fails or the clip is very long.
+ * - New scenes route the video element's audio through masterGain.
+ * - Legacy scenes with a separate audio.mp3 use a hidden <audio> element.
  * - Texture layers are fetched + decoded into AudioBuffers on first enable.
  * - Mix state is persisted to localStorage via src/lib/session.ts.
  */
 
 import { useCallback, useEffect, useState, type RefObject } from 'react';
 import type { AmbientSound } from '@/src/data/textures';
-import { getSceneFallbackAudioUrl } from '@/src/data/textures';
+import { sceneUsesVideoAudio } from '@/src/data/textures';
 import { loadMixState, makeDefaultMixState, saveMixState, type MixState } from './session';
-
-/** Scene clips longer than this use media-element fallback (RAM safety). */
-const MAX_BUFFER_LOOP_SECONDS = 180;
 
 // ─── Public types ─────────────────────────────────────────────────────────────
 
@@ -39,8 +35,6 @@ export interface UseAudioEngineReturn {
   /** True once the AudioContext has been started by a user gesture. */
   isReady: boolean;
   isPlaying: boolean;
-  /** True while scene audio is being fetched/decoded on first play. */
-  sceneLoading: boolean;
   masterVolume: number; // 0–100
   layers: LayerState[];
   /** Start/pause scene audio. First call also initialises the AudioContext. */
@@ -65,16 +59,8 @@ interface LayerNode {
   buffer: AudioBuffer | null;
 }
 
-interface SceneAudioNode {
-  buffer: AudioBuffer | null;
-  source: AudioBufferSourceNode | null;
-  /** false when using MediaElementSource fallback */
-  usesBufferLoop: boolean;
-}
-
 interface EngineCallbacks {
   onPlayState: (ready: boolean, playing: boolean) => void;
-  onSceneLoading: (loading: boolean) => void;
   onLayerLoading: (id: string, loading: boolean) => void;
   onMixState: (state: MixState) => void;
 }
@@ -84,7 +70,6 @@ interface EngineCallbacks {
 class AudioEngineCore {
   private ctx: AudioContext | null = null;
   private masterGain: GainNode | null = null;
-  private sceneAudio: SceneAudioNode = { buffer: null, source: null, usesBufferLoop: true };
   private sceneMedia: HTMLMediaElement | null = null;
   private detachedAudio: HTMLAudioElement | null = null;
   private layerNodes = new Map<string, LayerNode>();
@@ -92,21 +77,19 @@ class AudioEngineCore {
   private ready = false;
   private playing = false;
   private mixState: MixState;
-  private readonly sceneAudioUrl: string;
-  private readonly hasVideo: boolean;
+  private readonly useVideoAudio: boolean;
 
   constructor(
     private readonly sceneId: string,
     private readonly getVideoElement: () => HTMLVideoElement | null,
-    sceneAudioUrl: string,
-    hasVideo: boolean,
+    private readonly fallbackAudioUrl: string,
+    private readonly useVideoAudioFlag: boolean,
     private readonly textureDefs: AmbientSound[],
     initialMixState: MixState,
     private readonly cbs: EngineCallbacks,
   ) {
     this.mixState = initialMixState;
-    this.sceneAudioUrl = sceneAudioUrl;
-    this.hasVideo = hasVideo;
+    this.useVideoAudio = useVideoAudioFlag;
   }
 
   // ── Graph initialisation ──────────────────────────────────────────────────
@@ -129,15 +112,9 @@ class AudioEngineCore {
       this.layerNodes.set(t.id, { gainNode, source: null, buffer: null });
     });
 
-    return ctx;
-  }
-
-  private initMediaElementFallback(): void {
-    if (!this.ctx || !this.masterGain || this.sceneMedia) return;
-
     let media: HTMLMediaElement;
 
-    if (this.hasVideo) {
+    if (this.useVideoAudio) {
       const video = this.getVideoElement();
       if (!video) {
         throw new Error('[AudioEngine] Video element not available');
@@ -146,7 +123,7 @@ class AudioEngineCore {
       media = video;
     } else {
       const audio = new Audio();
-      audio.src = this.sceneAudioUrl;
+      audio.src = this.fallbackAudioUrl;
       audio.loop = true;
       audio.crossOrigin = 'anonymous';
       this.detachedAudio = audio;
@@ -154,9 +131,10 @@ class AudioEngineCore {
     }
 
     this.sceneMedia = media;
-    const mediaSource = this.ctx.createMediaElementSource(media);
-    mediaSource.connect(this.masterGain);
-    this.sceneAudio.usesBufferLoop = false;
+    const mediaSource = ctx.createMediaElementSource(media);
+    mediaSource.connect(masterGain);
+
+    return ctx;
   }
 
   // ── Buffer loading ────────────────────────────────────────────────────────
@@ -169,98 +147,8 @@ class AudioEngineCore {
       const arrayBuf = await resp.arrayBuffer();
       return await this.ctx.decodeAudioData(arrayBuf);
     } catch (e) {
-      console.error('[AudioEngine] Failed to decode audio:', url, e);
+      console.error('[AudioEngine] Failed to load texture:', url, e);
       return null;
-    }
-  }
-
-  // ── Scene audio (buffer loop or media fallback) ───────────────────────────
-
-  private stopSceneBufferSource() {
-    if (this.sceneAudio.source) {
-      try {
-        this.sceneAudio.source.stop();
-      } catch {
-        // Already stopped
-      }
-      this.sceneAudio.source.disconnect();
-      this.sceneAudio.source = null;
-    }
-  }
-
-  private async startSceneBufferSource(): Promise<boolean> {
-    if (!this.ctx || !this.masterGain) return false;
-
-    if (!this.sceneAudio.buffer) {
-      this.sceneAudio.buffer = await this.fetchBuffer(this.sceneAudioUrl);
-    }
-
-    const buffer = this.sceneAudio.buffer;
-    if (!buffer) return false;
-
-    if (buffer.duration > MAX_BUFFER_LOOP_SECONDS) {
-      console.warn(
-        `[AudioEngine] Scene audio (${buffer.duration.toFixed(0)}s) exceeds buffer limit — using media fallback`,
-      );
-      return false;
-    }
-
-    this.stopSceneBufferSource();
-
-    const source = this.ctx.createBufferSource();
-    source.buffer = buffer;
-    source.loop = true;
-    source.connect(this.masterGain);
-
-    let offset = 0;
-    if (this.hasVideo) {
-      const video = this.getVideoElement();
-      if (video && buffer.duration > 0) {
-        offset = video.currentTime % buffer.duration;
-      }
-    }
-
-    source.start(0, offset);
-    this.sceneAudio.source = source;
-    this.sceneAudio.usesBufferLoop = true;
-    return true;
-  }
-
-  private async ensureMediaElementFallbackPlaying(): Promise<void> {
-    this.initMediaElementFallback();
-    const media = this.sceneMedia;
-    if (!media) return;
-
-    if (this.hasVideo && media instanceof HTMLVideoElement) {
-      media.muted = false;
-    }
-
-    await media.play().catch((e) => console.warn('[AudioEngine] Scene play blocked:', e));
-  }
-
-  private async ensureVideoPlaying(): Promise<void> {
-    if (!this.hasVideo) return;
-
-    const video = this.getVideoElement();
-    if (!video) return;
-
-    video.crossOrigin = 'anonymous';
-    video.muted = true;
-    video.loop = true;
-    await video.play().catch((e) => console.warn('[AudioEngine] Video play blocked:', e));
-  }
-
-  private async startSceneAudio(): Promise<void> {
-    this.cbs.onSceneLoading(true);
-    try {
-      const bufferOk = await this.startSceneBufferSource();
-      if (!bufferOk) {
-        await this.ensureMediaElementFallbackPlaying();
-      } else {
-        await this.ensureVideoPlaying();
-      }
-    } finally {
-      this.cbs.onSceneLoading(false);
     }
   }
 
@@ -300,21 +188,15 @@ class AudioEngineCore {
     node.gainNode.gain.value = volume / 100;
   }
 
-  private pauseSceneMedia() {
-    if (this.sceneAudio.usesBufferLoop) {
-      const video = this.getVideoElement();
-      video?.pause();
-      return;
-    }
-    this.sceneMedia?.pause();
-  }
+  private async ensureSceneMediaPlaying() {
+    const media = this.sceneMedia;
+    if (!media) return;
 
-  private async resumeSceneMedia() {
-    if (this.sceneAudio.usesBufferLoop) {
-      await this.ensureVideoPlaying();
-      return;
+    if (this.useVideoAudio && media instanceof HTMLVideoElement) {
+      media.muted = false;
     }
-    await this.sceneMedia?.play().catch(() => {});
+
+    await media.play().catch((e) => console.warn('[AudioEngine] Scene play blocked:', e));
   }
 
   // ── Persist ───────────────────────────────────────────────────────────────
@@ -330,7 +212,7 @@ class AudioEngineCore {
     if (!this.ready) {
       const ctx = this.initCtx();
       if (ctx.state === 'suspended') await ctx.resume();
-      await this.startSceneAudio();
+      await this.ensureSceneMediaPlaying();
       this.ready = true;
       this.playing = true;
       this.cbs.onPlayState(true, true);
@@ -347,12 +229,16 @@ class AudioEngineCore {
     }
 
     if (this.playing) {
-      this.pauseSceneMedia();
+      if (!this.useVideoAudio) {
+        this.sceneMedia?.pause();
+      }
       await this.ctx?.suspend();
       this.playing = false;
     } else {
       await this.ctx?.resume();
-      await this.resumeSceneMedia();
+      if (!this.useVideoAudio) {
+        await this.sceneMedia?.play().catch(() => {});
+      }
       this.playing = true;
     }
     this.cbs.onPlayState(this.ready, this.playing);
@@ -420,8 +306,7 @@ class AudioEngineCore {
   }
 
   destroy() {
-    this.stopSceneBufferSource();
-    if (!this.sceneAudio.usesBufferLoop) {
+    if (!this.useVideoAudio) {
       this.sceneMedia?.pause();
     }
     this.detachedAudio = null;
@@ -438,12 +323,11 @@ export function useAudioEngine(
   textureDefs: AmbientSound[],
 ): UseAudioEngineReturn {
   const layerIds = textureDefs.map((t) => t.id);
-  const sceneAudioUrl = getSceneFallbackAudioUrl(media);
-  const hasVideo = !!media.videoUrl;
+  const useVideoAudio = sceneUsesVideoAudio(media);
+  const fallbackAudioUrl = media.audioUrl || media.videoUrl;
 
   const [isReady, setIsReady] = useState(false);
   const [isPlaying, setIsPlaying] = useState(false);
-  const [sceneLoading, setSceneLoading] = useState(false);
   const [mixState, setMixState] = useState<MixState>(() => makeDefaultMixState(layerIds));
   const [loadingSet, setLoadingSet] = useState<ReadonlySet<string>>(new Set());
 
@@ -452,8 +336,8 @@ export function useAudioEngine(
       new AudioEngineCore(
         sceneId,
         () => media.videoRef.current,
-        sceneAudioUrl,
-        hasVideo,
+        fallbackAudioUrl,
+        useVideoAudio,
         textureDefs,
         mixState,
         {
@@ -461,7 +345,6 @@ export function useAudioEngine(
             setIsReady(ready);
             setIsPlaying(playing);
           },
-          onSceneLoading: setSceneLoading,
           onLayerLoading: (id, loading) => {
             setLoadingSet((prev) => {
               const next = new Set(prev);
@@ -506,7 +389,6 @@ export function useAudioEngine(
   return {
     isReady,
     isPlaying,
-    sceneLoading,
     masterVolume: mixState.master,
     layers,
     toggle,
