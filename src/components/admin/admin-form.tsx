@@ -484,7 +484,7 @@ export function AdminForm() {
         <FileDropZone
           label="Video *"
           accept="video/mp4,video/webm,video/quicktime"
-          hint="MP4 with audio · max ~500 MB · thumbnail from first frame"
+          hint="MP4 with audio · max ~200 MB · thumbnail from first frame"
           file={videoFile}
           disabled={isUploading}
           onFile={setVideoFile}

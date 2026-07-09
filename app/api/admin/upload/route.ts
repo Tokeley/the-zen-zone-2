@@ -5,8 +5,10 @@ import { cookies } from 'next/headers';
 import { createClient } from '@/src/lib/supabase/server';
 import { r2 } from '@/src/lib/r2';
 
-// Allow large video files (up to 500 MB)
+// Allow large video files (up to 200 MB)
 export const maxDuration = 60;
+
+const MAX_VIDEO_BYTES = 200 * 1024 * 1024;
 
 const ALLOWED: Record<string, string[]> = {
   video: ['video/mp4', 'video/webm', 'video/quicktime'],
@@ -89,6 +91,13 @@ export async function POST(req: NextRequest) {
   if (!mimeType || !allowed.includes(mimeType)) {
     return NextResponse.json(
       { error: `Content type "${file.type || 'unknown'}" is not allowed for ${fileType}` },
+      { status: 400 },
+    );
+  }
+
+  if (fileType === 'video' && file.size > MAX_VIDEO_BYTES) {
+    return NextResponse.json(
+      { error: `Video must be ${MAX_VIDEO_BYTES / (1024 * 1024)} MB or smaller` },
       { status: 400 },
     );
   }

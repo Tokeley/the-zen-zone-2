@@ -6,11 +6,11 @@ const nextConfig = {
   images: {
     unoptimized: true,
   },
-  // Large scene videos upload through /api/admin/upload (up to ~500 MB)
+  // Large scene videos upload through /api/admin/upload (up to ~200 MB)
   experimental: {
-    proxyClientMaxBodySize: '500mb',
+    proxyClientMaxBodySize: '200mb',
     serverActions: {
-      bodySizeLimit: '500mb',
+      bodySizeLimit: '200mb',
     },
   },
 }
