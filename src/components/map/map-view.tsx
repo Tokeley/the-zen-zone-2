@@ -322,17 +322,16 @@ export function MapView({ scenes, onSearchOpen }: MapViewProps) {
 function ZenLogo({ className }: { className?: string }) {
   return (
     <svg
-      viewBox="0 0 22 22"
+      viewBox="0 0 24 24"
       fill="none"
       xmlns="http://www.w3.org/2000/svg"
       className={className}
     >
       {/* Filled circle — matches the map pin style */}
-      <circle cx="4" cy="11" r="3.5" fill="currentColor" />
-      {/* Sound waves — right-side arcs of increasing radius */}
-      <path d="M 4,5 A 6,6 0 0,1 4,17"       stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
-      <path d="M 4,2.5 A 8.5,8.5 0 0,1 4,19.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
-      <path d="M 4,0 A 11,11 0 0,1 4,22"       stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+      <circle cx="6" cy="12" r="3" fill="currentColor" />
+      {/* Sound waves — right-side arcs of increasing radius, inset to clear the stroke */}
+      <path d="M 6,7 A 5,5 0 0,1 6,17"  stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+      <path d="M 6,4 A 8,8 0 0,1 6,20" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
     </svg>
   );
 }
