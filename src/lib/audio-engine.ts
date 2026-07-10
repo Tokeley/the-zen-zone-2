@@ -232,16 +232,41 @@ class AudioEngineCore {
       if (!this.useVideoAudio) {
         this.sceneMedia?.pause();
       }
-      await this.ctx?.suspend();
+      this.muteAll();
       this.playing = false;
     } else {
-      await this.ctx?.resume();
       if (!this.useVideoAudio) {
         await this.sceneMedia?.play().catch(() => {});
       }
+      this.unmuteAll();
       this.playing = true;
     }
     this.cbs.onPlayState(this.ready, this.playing);
+  }
+
+  // Mutes/unmutes via gain instead of ctx.suspend()/resume() — suspending the shared
+  // AudioContext stalls the <video> element's decode clock when it's the Web Audio
+  // source (muxed legacy scenes), freezing the visible video whenever audio is paused.
+  private muteAll() {
+    if (this.masterGain) this.masterGain.gain.value = 0;
+    this.layerNodes.forEach((node, id) => {
+      if (this.mixState.layers[id]?.enabled) node.gainNode.gain.value = 0;
+    });
+  }
+
+  private unmuteAll() {
+    if (this.masterGain) this.masterGain.gain.value = this.mixState.master / 100;
+    this.layerNodes.forEach((node, id) => {
+      const layerState = this.mixState.layers[id];
+      if (layerState?.enabled) node.gainNode.gain.value = layerState.volume / 100;
+    });
+  }
+
+  /** iOS/mobile background-suspend workaround: re-resume if the browser suspended the context. */
+  resumeIfSuspended() {
+    if (this.ctx && this.ctx.state === 'suspended') {
+      this.ctx.resume().catch(() => {});
+    }
   }
 
   setMasterVolume(v: number) {
@@ -359,6 +384,17 @@ export function useAudioEngine(
   );
 
   useEffect(() => () => engine.destroy(), [engine]);
+
+  // iOS Safari (and other mobile browsers) suspend the AudioContext when the page is
+  // backgrounded; resume it once the tab is visible again rather than leaving it
+  // suspended until some unrelated interaction happens to call ctx.resume().
+  useEffect(() => {
+    const handleVisibility = () => {
+      if (document.visibilityState === 'visible') engine.resumeIfSuspended();
+    };
+    document.addEventListener('visibilitychange', handleVisibility);
+    return () => document.removeEventListener('visibilitychange', handleVisibility);
+  }, [engine]);
 
   useEffect(() => {
     const saved = loadMixState(sceneId, layerIds);
