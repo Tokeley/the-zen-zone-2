@@ -16,14 +16,13 @@ const MAP_VIEW_STATE_KEY = 'zen-map-view-state';
 // Snapshot taken just before the zoom-in animation so we can restore it on return
 const MAP_RETURN_STATE_KEY = 'zen-map-return-state';
 
-// First load: very zoomed-out globe that auto-spins until interaction
+// First load: centered on Auckland, where all current scenes are located
 const INITIAL_FIRST_LOAD = {
-  longitude: 0,
-  latitude: 20,
-  zoom: 1,
+  longitude: 174.76,
+  latitude: -36.85,
+  zoom: 10.5,
 };
 
-const SECONDS_PER_REVOLUTION = 120;
 /** Minimum zoom when selecting a pin — only zoom in if the map is more zoomed out than this. */
 const PIN_SELECT_ZOOM = 5;
 
@@ -49,14 +48,6 @@ function getSavedViewState(): {
   return INITIAL_FIRST_LOAD;
 }
 
-function isFirstLoad(): boolean {
-  if (typeof window === 'undefined') return true;
-  return (
-    !sessionStorage.getItem(MAP_VIEW_STATE_KEY) &&
-    !sessionStorage.getItem(MAP_RETURN_STATE_KEY)
-  );
-}
-
 interface MapViewProps {
   scenes: Scene[];
   onSearchOpen: () => void;
@@ -71,39 +62,15 @@ export function MapView({ scenes, onSearchOpen }: MapViewProps) {
   const [isZoomingIn, setIsZoomingIn] = useState(false);
   const [userHasInteracted, setUserHasInteracted] = useState(false);
   const userHasInteractedRef = useRef(false);
-  const shouldAutoSpin = useRef(isFirstLoad());
-
-  const spinGlobe = useCallback(() => {
-    const map = mapRef.current?.getMap?.();
-    if (!map || userHasInteractedRef.current || !shouldAutoSpin.current) return;
-    const zoom = map.getZoom();
-    if (zoom >= PIN_SELECT_ZOOM) return; // Don't spin when zoomed in
-    const distancePerSecond = 360 / SECONDS_PER_REVOLUTION;
-    const center = map.getCenter();
-    center.lng += distancePerSecond;
-    map.easeTo({ center, duration: 1000, easing: (n) => n });
-  }, []);
 
   useEffect(() => {
     userHasInteractedRef.current = userHasInteracted;
   }, [userHasInteracted]);
 
-  const handleMapLoad = useCallback(() => {
-    if (shouldAutoSpin.current && !userHasInteractedRef.current) {
-      spinGlobe();
-    }
-  }, [spinGlobe]);
-
   const handleUserInteraction = useCallback(() => {
     userHasInteractedRef.current = true;
     setUserHasInteracted(true);
   }, []);
-
-  const handleMoveEnd = useCallback(() => {
-    if (!userHasInteractedRef.current && shouldAutoSpin.current) {
-      spinGlobe();
-    }
-  }, [spinGlobe]);
 
   const handleMarkerClick = useCallback((scene: Scene) => {
     setSelectedScene((prev) => {
@@ -234,7 +201,6 @@ export function MapView({ scenes, onSearchOpen }: MapViewProps) {
             // ignore
           }
         }}
-        onMoveEnd={handleMoveEnd}
         onMouseDown={handleUserInteraction}
         onTouchStart={handleUserInteraction}
         onWheel={handleUserInteraction}
@@ -242,7 +208,6 @@ export function MapView({ scenes, onSearchOpen }: MapViewProps) {
         onZoomStart={handleUserInteraction}
         onRotateStart={handleUserInteraction}
         onPitchStart={handleUserInteraction}
-        onLoad={handleMapLoad}
         style={{ width: '100%', height: '100%' }}
         mapStyle="mapbox://styles/mapbox/light-v11"
         mapboxAccessToken={process.env.NEXT_PUBLIC_MAPBOX_TOKEN || 'pk.eyJ1IjoiZGVtby12MCIsImEiOiJjbHd4eWV6eGowMDFqMmlxd2F5OXRwMWZpIn0.demo-token'}
