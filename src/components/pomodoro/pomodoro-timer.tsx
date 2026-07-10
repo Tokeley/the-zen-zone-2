@@ -1,22 +1,16 @@
 'use client';
 
-import { useState } from 'react';
 import { usePomodoro, PomodoroPhase } from '@/src/lib/pomodoro';
+import { usePomodoroContext } from './pomodoro-provider';
 
 const TEXT_SHADOW = '0 1px 8px rgba(0,0,0,0.85), 0 0 20px rgba(0,0,0,0.5)';
 const TEXT_SHADOW_SM = '0 1px 6px rgba(0,0,0,0.8)';
 
-interface PomodoroTimerProps {
-  isOpen?: boolean;
-  onToggle?: () => void;
-}
+export function PomodoroTimer() {
+  const timer = usePomodoroContext();
 
-export function PomodoroTimer({ isOpen, onToggle }: PomodoroTimerProps) {
-  const [internalOpen, setInternalOpen] = useState(false);
-  const timer = usePomodoro();
-
-  const isExpanded = isOpen !== undefined ? isOpen : internalOpen;
-  const handleToggle = onToggle ?? (() => setInternalOpen((v) => !v));
+  const isExpanded = timer.isPanelOpen;
+  const handleToggle = timer.togglePanel;
 
   const showMini = timer.isActive && !isExpanded;
 

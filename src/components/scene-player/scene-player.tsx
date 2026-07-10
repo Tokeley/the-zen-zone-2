@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { Scene } from '@/src/data/textures';
 import { AudioMixer } from '@/src/components/audio-mixer/audio-mixer';
 import { PomodoroTimer } from '@/src/components/pomodoro/pomodoro-timer';
+import { usePomodoroContext } from '@/src/components/pomodoro/pomodoro-provider';
 import {
   claimSceneVideoPreload,
   consumeMapSceneEntry,
@@ -28,17 +29,33 @@ export function ScenePlayer({ scene }: ScenePlayerProps) {
   const [isVideoLoaded, setIsVideoLoaded] = useState(false);
   const [hasEntered, setHasEntered] = useState(false);
   const [mixerOpen, setMixerOpen] = useState(false);
-  const [pomodoroOpen, setPomodoroOpen] = useState(false);
+  const {
+    isPanelOpen: pomodoroOpen,
+    closePanel: closePomodoroPanel,
+    status: pomodoroStatus,
+    pause: pausePomodoro,
+  } = usePomodoroContext();
 
   const toggleMixer = useCallback(() => {
     setMixerOpen((v) => !v);
-    if (window.innerWidth < 720) setPomodoroOpen(false);
-  }, []);
+    if (window.innerWidth < 720) closePomodoroPanel();
+  }, [closePomodoroPanel]);
 
-  const togglePomodoro = useCallback(() => {
-    setPomodoroOpen((v) => !v);
-    if (window.innerWidth < 720) setMixerOpen(false);
-  }, []);
+  // Mirror the mixer's narrow-viewport exclusivity: closing/opening the Pomodoro
+  // panel should also collapse the mixer.
+  useEffect(() => {
+    if (pomodoroOpen && window.innerWidth < 720) setMixerOpen(false);
+  }, [pomodoroOpen]);
+
+  // Pause the Pomodoro timer when leaving this scene (e.g. back to the map) —
+  // it shouldn't keep counting down while the user isn't looking at a scene.
+  const pomodoroStatusRef = useRef(pomodoroStatus);
+  pomodoroStatusRef.current = pomodoroStatus;
+  useEffect(() => {
+    return () => {
+      if (pomodoroStatusRef.current === 'running') pausePomodoro();
+    };
+  }, [pausePomodoro]);
 
   useEffect(() => {
     const raf = requestAnimationFrame(() => {
@@ -128,7 +145,7 @@ export function ScenePlayer({ scene }: ScenePlayerProps) {
 
       <AudioMixer scene={scene} videoRef={videoRef} isOpen={mixerOpen} onToggle={toggleMixer} />
 
-      <PomodoroTimer isOpen={pomodoroOpen} onToggle={togglePomodoro} />
+      <PomodoroTimer />
     </div>
   );
 }
