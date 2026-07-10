@@ -41,14 +41,6 @@ export function ScenePlayer({ scene }: ScenePlayerProps) {
   }, []);
 
   useEffect(() => {
-    const handleResize = () => {
-      if (window.innerWidth < 720) setPomodoroOpen(false);
-    };
-    window.addEventListener('resize', handleResize);
-    return () => window.removeEventListener('resize', handleResize);
-  }, []);
-
-  useEffect(() => {
     const raf = requestAnimationFrame(() => {
       requestAnimationFrame(() => setHasEntered(true));
     });
