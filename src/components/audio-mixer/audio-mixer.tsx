@@ -54,10 +54,10 @@ export function AudioMixer({ scene, videoRef, isOpen, onToggle }: AudioMixerProp
 
       {/* Expandable mixer panel */}
       <div
-        className={`fixed bottom-[88px] left-6 right-6 rounded-lg border border-white/20 bg-black/30 p-5 transition-[opacity,transform] duration-300 ease-out sm:absolute sm:bottom-16 sm:left-0 sm:right-auto min-[640px]:min-w-[320px] min-[930px]:min-w-[500px] ${
+        className={`fixed bottom-[88px] left-6 right-6 rounded-lg border border-white/20 bg-black/30 p-5 transition-opacity duration-300 ease-out sm:absolute sm:bottom-16 sm:left-0 sm:right-auto min-[640px]:min-w-[320px] min-[930px]:min-w-[500px] ${
           isExpanded
-            ? 'pointer-events-auto translate-y-0 opacity-100'
-            : 'pointer-events-none translate-y-4 opacity-0'
+            ? 'pointer-events-auto opacity-100'
+            : 'pointer-events-none opacity-0'
         }`}
         style={{ backdropFilter: 'blur(12px)', WebkitBackdropFilter: 'blur(12px)' }}
       >
