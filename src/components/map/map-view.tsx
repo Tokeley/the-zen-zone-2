@@ -57,6 +57,7 @@ export function MapView({ scenes, onSearchOpen }: MapViewProps) {
   const mapRef = useRef<MapRef>(null);
   const router = useRouter();
   const [selectedScene, setSelectedScene] = useState<Scene | null>(null);
+  const [thumbnailLoaded, setThumbnailLoaded] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
   const [viewState, setViewState] = useState(getSavedViewState);
   const [isZoomingIn, setIsZoomingIn] = useState(false);
@@ -74,8 +75,9 @@ export function MapView({ scenes, onSearchOpen }: MapViewProps) {
 
   const handleMarkerClick = useCallback((scene: Scene) => {
     setSelectedScene((prev) => {
-      if (prev && prev.id !== scene.id) {
-        releaseSceneVideoPreload(prev.id);
+      if (!prev || prev.id !== scene.id) {
+        if (prev) releaseSceneVideoPreload(prev.id);
+        setThumbnailLoaded(false);
       }
       return scene;
     });
@@ -255,14 +257,20 @@ export function MapView({ scenes, onSearchOpen }: MapViewProps) {
           >
             <div className="w-full">
               {/* Thumbnail */}
-              <div className="relative aspect-[16/9] overflow-hidden rounded-t-sm">
+              <div className="relative aspect-[16/9] overflow-hidden rounded-t-sm bg-muted">
                 <Image
                   src={selectedScene.thumbnailUrl}
                   alt={selectedScene.title}
                   fill
                   className="object-cover"
                   sizes="240px"
+                  onLoad={() => setThumbnailLoaded(true)}
                 />
+                {!thumbnailLoaded && (
+                  <div className="absolute inset-0 flex items-center justify-center bg-muted">
+                    <div className="h-6 w-6 animate-spin rounded-full border-2 border-border border-t-foreground" />
+                  </div>
+                )}
               </div>
 
               {/* Text content */}
