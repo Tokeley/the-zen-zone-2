@@ -58,6 +58,7 @@ export function MapView({ scenes, onSearchOpen }: MapViewProps) {
   const router = useRouter();
   const [selectedScene, setSelectedScene] = useState<Scene | null>(null);
   const [thumbnailLoaded, setThumbnailLoaded] = useState(false);
+  const [mapLoaded, setMapLoaded] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
   const [viewState, setViewState] = useState(getSavedViewState);
   const [isZoomingIn, setIsZoomingIn] = useState(false);
@@ -195,6 +196,7 @@ export function MapView({ scenes, onSearchOpen }: MapViewProps) {
         ref={mapRef}
         {...viewState}
         projection={{ name: 'globe' }}
+        onLoad={() => setMapLoaded(true)}
         onMove={(evt) => {
           setViewState(evt.viewState);
           try {
@@ -220,30 +222,31 @@ export function MapView({ scenes, onSearchOpen }: MapViewProps) {
           'horizon-blend': 0.1,
         }}
       >
-        {scenes.map((scene) => (
-          <Marker
-            key={scene.id}
-            longitude={scene.lng}
-            latitude={scene.lat}
-            anchor="center"
-            onClick={(e) => {
-              e.originalEvent.stopPropagation();
-              handleMarkerClick(scene);
-            }}
-          >
-            <div 
-              className={`group cursor-pointer transition-all duration-300 ${
-                selectedScene?.id === scene.id ? 'scale-125' : 'hover:scale-125'
-              }`}
+        {mapLoaded &&
+          scenes.map((scene) => (
+            <Marker
+              key={scene.id}
+              longitude={scene.lng}
+              latitude={scene.lat}
+              anchor="center"
+              onClick={(e) => {
+                e.originalEvent.stopPropagation();
+                handleMarkerClick(scene);
+              }}
             >
-              <div className={`h-4 w-4 rounded-full border-2 border-white/60 shadow-sm transition-colors duration-300 ${
-                selectedScene?.id === scene.id 
-                  ? 'bg-accent' 
-                  : 'bg-accent group-hover:bg-accent/70'
-              }`} />
-            </div>
-          </Marker>
-        ))}
+              <div
+                className={`group cursor-pointer transition-all duration-300 ${
+                  selectedScene?.id === scene.id ? 'scale-125' : 'hover:scale-125'
+                }`}
+              >
+                <div className={`h-4 w-4 rounded-full border-2 border-white/60 shadow-sm transition-colors duration-300 ${
+                  selectedScene?.id === scene.id
+                    ? 'bg-accent'
+                    : 'bg-accent group-hover:bg-accent/70'
+                }`} />
+              </div>
+            </Marker>
+          ))}
 
         {selectedScene && (
           <Popup
@@ -295,6 +298,13 @@ export function MapView({ scenes, onSearchOpen }: MapViewProps) {
           </Popup>
         )}
       </Map>
+
+      {/* Map loading spinner — covers the canvas until the map style/tiles have loaded */}
+      {!mapLoaded && (
+        <div className="absolute inset-0 z-10 flex items-center justify-center bg-background">
+          <div className="h-6 w-6 animate-spin rounded-full border-2 border-border border-t-foreground" />
+        </div>
+      )}
 
       {/* Footer */}
       <div className="absolute bottom-4 left-4 z-10">

@@ -97,7 +97,7 @@ function TimerPanel({ timer, isVisible }: { timer: Timer; isVisible: boolean }) 
           else if (timer.status === 'running') timer.pause();
           else timer.resume();
         }}
-        className="mt-1.5 rounded-full border border-white/20 bg-black/40 px-12 py-3.5 text-sm font-light tracking-widest uppercase text-white backdrop-blur-md transition-[background-color] duration-150 hover:bg-black/55 [transform:translateZ(0)]"
+        className="mt-1.5 w-44 rounded-full border border-white/20 bg-black/40 py-3.5 text-center text-sm font-light tracking-widest uppercase text-white backdrop-blur-md transition-[background-color] duration-150 hover:bg-black/55 [transform:translateZ(0)]"
         style={{ textShadow: TEXT_SHADOW_SM }}
       >
         {timer.status === 'idle'
