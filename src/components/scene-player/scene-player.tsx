@@ -30,22 +30,13 @@ export function ScenePlayer({ scene }: ScenePlayerProps) {
   const [hasEntered, setHasEntered] = useState(false);
   const [mixerOpen, setMixerOpen] = useState(false);
   const {
-    isPanelOpen: pomodoroOpen,
-    closePanel: closePomodoroPanel,
     status: pomodoroStatus,
     pause: pausePomodoro,
   } = usePomodoroContext();
 
   const toggleMixer = useCallback(() => {
     setMixerOpen((v) => !v);
-    if (window.innerWidth < 720) closePomodoroPanel();
-  }, [closePomodoroPanel]);
-
-  // Mirror the mixer's narrow-viewport exclusivity: closing/opening the Pomodoro
-  // panel should also collapse the mixer.
-  useEffect(() => {
-    if (pomodoroOpen && window.innerWidth < 720) setMixerOpen(false);
-  }, [pomodoroOpen]);
+  }, []);
 
   // Pause the Pomodoro timer when leaving this scene (e.g. back to the map) —
   // it shouldn't keep counting down while the user isn't looking at a scene.
