@@ -8,7 +8,7 @@ interface SidePanelProps {
 export function SidePanel({ content, onClose }: SidePanelProps) {
   return (
     <div
-      className={`fixed inset-y-0 right-0 z-30 w-full border-l border-border bg-background shadow-xl transition-transform duration-300 ease-out sm:w-1/3 ${
+      className={`fixed inset-y-0 right-0 z-30 w-full border-l border-border bg-background shadow-xl ease-out max-[1439px]:transition-none min-[1440px]:w-1/3 min-[1440px]:max-w-[480px] min-[1440px]:transition-transform min-[1440px]:duration-300 ${
         content ? 'translate-x-0' : 'translate-x-full'
       }`}
     >
@@ -25,8 +25,8 @@ export function SidePanel({ content, onClose }: SidePanelProps) {
         </div>
       </button>
 
-      <div className="p-8">
-        <p className="text-sm font-light tracking-widest uppercase text-foreground">
+      <div className="p-8 max-[1439px]:p-0">
+        <p className="text-sm font-light tracking-widest uppercase text-foreground max-[1439px]:absolute max-[1439px]:inset-x-0 max-[1439px]:top-4 max-[1439px]:flex max-[1439px]:h-10 max-[1439px]:items-center max-[1439px]:justify-center max-[1439px]:text-2xl">
           {content === 'about' ? 'About' : content === 'contact' ? 'Contact' : ''}
         </p>
       </div>
