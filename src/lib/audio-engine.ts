@@ -49,6 +49,8 @@ export interface SceneMediaConfig {
   videoRef: RefObject<HTMLVideoElement | null>;
   videoUrl: string;
   audioUrl: string;
+  title: string;
+  thumbnailUrl?: string;
 }
 
 // ─── Internal types ──────────────────────────────────────────────────────────
@@ -87,6 +89,8 @@ class AudioEngineCore {
     private readonly textureDefs: AmbientSound[],
     initialMixState: MixState,
     private readonly cbs: EngineCallbacks,
+    private readonly title: string,
+    private readonly thumbnailUrl?: string,
   ) {
     this.mixState = initialMixState;
     this.useVideoAudio = useVideoAudioFlag;
@@ -134,7 +138,35 @@ class AudioEngineCore {
     const mediaSource = ctx.createMediaElementSource(media);
     mediaSource.connect(masterGain);
 
+    this.initMediaSession();
+
     return ctx;
+  }
+
+  // ── Media Session (mobile background-playback signal + lock-screen controls) ─────
+  //
+  // Without this, mobile Chrome/Safari have no signal that the tab is playing audio
+  // the user cares about, and throttle/suspend it soon after the page is backgrounded
+  // (switching apps, locking the screen). Registering metadata + action handlers is
+  // what keeps playback alive off-screen.
+
+  private initMediaSession() {
+    if (typeof navigator === 'undefined' || !('mediaSession' in navigator)) return;
+
+    navigator.mediaSession.metadata = new MediaMetadata({
+      title: this.title,
+      artist: 'The Zen Zone',
+      artwork: this.thumbnailUrl
+        ? [{ src: this.thumbnailUrl, sizes: '512x512', type: 'image/jpeg' }]
+        : [],
+    });
+    navigator.mediaSession.setActionHandler('play', () => this.toggle());
+    navigator.mediaSession.setActionHandler('pause', () => this.toggle());
+  }
+
+  private setMediaSessionPlaybackState(state: MediaSessionPlaybackState) {
+    if (typeof navigator === 'undefined' || !('mediaSession' in navigator)) return;
+    navigator.mediaSession.playbackState = state;
   }
 
   // ── Buffer loading ────────────────────────────────────────────────────────
@@ -216,6 +248,7 @@ class AudioEngineCore {
       this.ready = true;
       this.playing = true;
       this.cbs.onPlayState(true, true);
+      this.setMediaSessionPlaybackState('playing');
 
       for (const [id, layerState] of Object.entries(this.mixState.layers)) {
         if (layerState.enabled) {
@@ -242,6 +275,7 @@ class AudioEngineCore {
       this.playing = true;
     }
     this.cbs.onPlayState(this.ready, this.playing);
+    this.setMediaSessionPlaybackState(this.playing ? 'playing' : 'paused');
   }
 
   // Mutes/unmutes via gain instead of ctx.suspend()/resume() — suspending the shared
@@ -337,6 +371,7 @@ class AudioEngineCore {
     this.detachedAudio = null;
     this.layerNodes.forEach((node) => this.stopLayerSource(node));
     this.ctx?.close().catch(() => {});
+    this.setMediaSessionPlaybackState('none');
   }
 }
 
@@ -380,6 +415,8 @@ export function useAudioEngine(
           },
           onMixState: setMixState,
         },
+        media.title,
+        media.thumbnailUrl,
       ),
   );
 

@@ -15,7 +15,13 @@ interface AudioMixerProps {
 export function AudioMixer({ scene, videoRef, isOpen, onToggle }: AudioMixerProps) {
   const engine = useAudioEngine(
     scene.id,
-    { videoRef, videoUrl: scene.videoUrl, audioUrl: scene.audioUrl },
+    {
+      videoRef,
+      videoUrl: scene.videoUrl,
+      audioUrl: scene.audioUrl,
+      title: scene.title,
+      thumbnailUrl: scene.thumbnailUrl,
+    },
     textures,
   );
   const [internalExpanded, setInternalExpanded] = useState(false);
@@ -24,7 +30,7 @@ export function AudioMixer({ scene, videoRef, isOpen, onToggle }: AudioMixerProp
   const handleToggle = onToggle ?? (() => setInternalExpanded((v) => !v));
 
   return (
-    <div className="fixed bottom-6 left-6 z-20">
+    <div className="fixed bottom-6 left-6 z-30">
       {/* Always-visible controls */}
       <div className="flex items-center gap-2">
         <button
