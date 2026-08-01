@@ -10,6 +10,7 @@ import {
   releaseSceneVideoPreload,
 } from '@/src/lib/scene-video-preload';
 import { useRouter } from 'next/navigation';
+import { SidePanel } from './side-panel';
 import 'mapbox-gl/dist/mapbox-gl.css';
 
 const MAP_VIEW_STATE_KEY = 'zen-map-view-state';
@@ -60,6 +61,9 @@ export function MapView({ scenes, onSearchOpen }: MapViewProps) {
   const [thumbnailLoaded, setThumbnailLoaded] = useState(false);
   const [mapLoaded, setMapLoaded] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
+  const [activePanel, setActivePanel] = useState<'about' | 'contact' | null>(null);
+  const panelOpen = activePanel !== null;
+  const navRightClass = panelOpen ? 'right-6 sm:right-[calc(100%/3+1.5rem)]' : 'right-6';
   const [viewState, setViewState] = useState(getSavedViewState);
   const [isZoomingIn, setIsZoomingIn] = useState(false);
   const [userHasInteracted, setUserHasInteracted] = useState(false);
@@ -150,46 +154,48 @@ export function MapView({ scenes, onSearchOpen }: MapViewProps) {
 
       {/* Burger / X — direct child so mix-blend-difference works against the map */}
       <button
-        onClick={() => setMenuOpen((o) => !o)}
-        className="absolute right-6 top-4 z-20 flex h-10 items-center px-2 mix-blend-difference"
-        aria-label={menuOpen ? 'Close menu' : 'Open menu'}
+        onClick={() => {
+          if (activePanel) {
+            setActivePanel(null);
+          } else {
+            setMenuOpen((o) => !o);
+          }
+        }}
+        className={`absolute top-4 z-20 flex h-10 items-center px-2 mix-blend-difference transition-[right] duration-300 ease-out ${navRightClass}`}
+        aria-label={menuOpen || panelOpen ? 'Close menu' : 'Open menu'}
       >
         <div className="flex flex-col gap-1.5">
-          <span className={`block h-px w-6 bg-white origin-center transition-all duration-300 ${menuOpen ? 'translate-y-[7px] rotate-45' : ''}`} />
-          <span className={`block h-px w-6 bg-white transition-all duration-300 ${menuOpen ? 'opacity-0 scale-x-0' : ''}`} />
-          <span className={`block h-px w-6 bg-white origin-center transition-all duration-300 ${menuOpen ? '-translate-y-[7px] -rotate-45' : ''}`} />
+          <span className={`block h-px w-6 bg-white origin-center transition-all duration-300 ${menuOpen || panelOpen ? 'translate-y-[7px] rotate-45' : ''}`} />
+          <span className={`block h-px w-6 bg-white transition-all duration-300 ${menuOpen || panelOpen ? 'opacity-0 scale-x-0' : ''}`} />
+          <span className={`block h-px w-6 bg-white origin-center transition-all duration-300 ${menuOpen || panelOpen ? '-translate-y-[7px] -rotate-45' : ''}`} />
         </div>
       </button>
 
       {/* Dropdown menu */}
       <div
-        className={`absolute right-6 top-20 z-20 mix-blend-difference transition-all duration-300 ${
+        className={`absolute top-20 z-20 mix-blend-difference transition-all duration-300 ${navRightClass} ${
           menuOpen ? 'opacity-100 translate-y-0 pointer-events-auto' : 'opacity-0 -translate-y-2 pointer-events-none'
         }`}
       >
         <nav className="flex flex-col text-right">
-          <a
-            href="/about"
-            className="py-3 text-sm font-light tracking-widest uppercase text-white hover:opacity-60 transition-opacity"
+          <button
+            onClick={() => { setActivePanel('about'); setMenuOpen(false); }}
+            className="py-3 text-sm font-light tracking-widest uppercase text-white hover:opacity-60 transition-opacity text-right"
           >
             About
-          </a>
+          </button>
           <div className="h-px w-full bg-white/40" />
-          <a
-            href="/creator"
-            className="py-3 text-sm font-light tracking-widest uppercase text-white hover:opacity-60 transition-opacity"
-          >
-            Become a Creator
-          </a>
-          <div className="h-px w-full bg-white/40" />
-          <a
-            href="/contact"
-            className="py-3 text-sm font-light tracking-widest uppercase text-white hover:opacity-60 transition-opacity"
+          <button
+            onClick={() => { setActivePanel('contact'); setMenuOpen(false); }}
+            className="py-3 text-sm font-light tracking-widest uppercase text-white hover:opacity-60 transition-opacity text-right"
           >
             Contact
-          </a>
+          </button>
         </nav>
       </div>
+
+      {/* About / Contact side panel */}
+      <SidePanel content={activePanel} />
 
       {/* Map */}
       <Map
