@@ -1,5 +1,9 @@
 'use client';
 
+import { AboutContent } from './about-content';
+import { ContactContent } from './contact-content';
+import { PlaceholderBox } from './placeholder-box';
+
 interface SidePanelProps {
   content: 'about' | 'contact' | null;
   onClose: () => void;
@@ -25,10 +29,22 @@ export function SidePanel({ content, onClose }: SidePanelProps) {
         </div>
       </button>
 
-      <div className="p-8 max-[1439px]:p-0">
-        <p className="text-sm font-light tracking-widest uppercase text-foreground max-[1439px]:absolute max-[1439px]:inset-x-0 max-[1439px]:top-4 max-[1439px]:flex max-[1439px]:h-10 max-[1439px]:items-center max-[1439px]:justify-center max-[1439px]:text-2xl">
-          {content === 'about' ? 'About' : content === 'contact' ? 'Contact' : ''}
-        </p>
+      {/* Pinned title, matching the close button's top-4/h-10 band so it stays
+          at a fixed vertical position instead of scrolling away with the body.
+          pointer-events-none because this row spans the full panel width and
+          would otherwise sit on top of (and swallow clicks on) the close button. */}
+      <div className="pointer-events-none absolute inset-x-0 top-4 flex h-10 items-center justify-center">
+        {content && (
+          <PlaceholderBox
+            label={content === 'about' ? 'Title: About' : 'Title: Contact'}
+            className="h-full w-40"
+          />
+        )}
+      </div>
+
+      <div className="h-full overflow-y-auto pt-16">
+        {content === 'about' && <AboutContent />}
+        {content === 'contact' && <ContactContent />}
       </div>
     </div>
   );
