@@ -62,8 +62,6 @@ export function MapView({ scenes, onSearchOpen }: MapViewProps) {
   const [mapLoaded, setMapLoaded] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
   const [activePanel, setActivePanel] = useState<'about' | 'contact' | null>(null);
-  const panelOpen = activePanel !== null;
-  const navRightClass = panelOpen ? 'right-6 sm:right-[calc(100%/3+1.5rem)]' : 'right-6';
   const [viewState, setViewState] = useState(getSavedViewState);
   const [isZoomingIn, setIsZoomingIn] = useState(false);
   const [userHasInteracted, setUserHasInteracted] = useState(false);
@@ -152,41 +150,38 @@ export function MapView({ scenes, onSearchOpen }: MapViewProps) {
         <span>Explore</span>
       </button>
 
-      {/* Burger / X — direct child so mix-blend-difference works against the map */}
+      {/* Burger / X — direct child so mix-blend-difference works against the map.
+          Covered by the side panel (higher z-index) once a panel is open, so this
+          only ever needs to handle the plain hamburger <-> X menu toggle. */}
       <button
-        onClick={() => {
-          if (activePanel) {
-            setActivePanel(null);
-          } else {
-            setMenuOpen((o) => !o);
-          }
-        }}
-        className={`absolute top-4 z-20 flex h-10 items-center px-2 mix-blend-difference transition-[right] duration-300 ease-out ${navRightClass}`}
-        aria-label={menuOpen || panelOpen ? 'Close menu' : 'Open menu'}
+        onClick={() => setMenuOpen((o) => !o)}
+        className="absolute top-4 right-6 z-20 flex h-10 items-center px-2 mix-blend-difference"
+        aria-label={menuOpen ? 'Close menu' : 'Open menu'}
       >
         <div className="flex flex-col gap-1.5">
-          <span className={`block h-px w-6 bg-white origin-center transition-all duration-300 ${menuOpen || panelOpen ? 'translate-y-[7px] rotate-45' : ''}`} />
-          <span className={`block h-px w-6 bg-white transition-all duration-300 ${menuOpen || panelOpen ? 'opacity-0 scale-x-0' : ''}`} />
-          <span className={`block h-px w-6 bg-white origin-center transition-all duration-300 ${menuOpen || panelOpen ? '-translate-y-[7px] -rotate-45' : ''}`} />
+          <span className={`block h-px w-6 bg-white origin-center transition-all duration-300 ${menuOpen ? 'translate-y-[7px] rotate-45' : ''}`} />
+          <span className={`block h-px w-6 bg-white transition-all duration-300 ${menuOpen ? 'opacity-0 scale-x-0' : ''}`} />
+          <span className={`block h-px w-6 bg-white origin-center transition-all duration-300 ${menuOpen ? '-translate-y-[7px] -rotate-45' : ''}`} />
         </div>
       </button>
 
-      {/* Dropdown menu */}
+      {/* Dropdown menu — stays open (not reset) when a link is clicked, so it's still
+          showing underneath once the side panel closes again. */}
       <div
-        className={`absolute top-20 z-20 mix-blend-difference transition-all duration-300 ${navRightClass} ${
+        className={`absolute top-20 right-6 z-20 mix-blend-difference transition-all duration-300 ${
           menuOpen ? 'opacity-100 translate-y-0 pointer-events-auto' : 'opacity-0 -translate-y-2 pointer-events-none'
         }`}
       >
         <nav className="flex flex-col text-right">
           <button
-            onClick={() => { setActivePanel('about'); setMenuOpen(false); }}
+            onClick={() => setActivePanel('about')}
             className="py-3 text-sm font-light tracking-widest uppercase text-white hover:opacity-60 transition-opacity text-right"
           >
             About
           </button>
           <div className="h-px w-full bg-white/40" />
           <button
-            onClick={() => { setActivePanel('contact'); setMenuOpen(false); }}
+            onClick={() => setActivePanel('contact')}
             className="py-3 text-sm font-light tracking-widest uppercase text-white hover:opacity-60 transition-opacity text-right"
           >
             Contact
@@ -194,8 +189,8 @@ export function MapView({ scenes, onSearchOpen }: MapViewProps) {
         </nav>
       </div>
 
-      {/* About / Contact side panel */}
-      <SidePanel content={activePanel} />
+      {/* About / Contact side panel — slides in on top of the dropdown above */}
+      <SidePanel content={activePanel} onClose={() => setActivePanel(null)} />
 
       {/* Map */}
       <Map
