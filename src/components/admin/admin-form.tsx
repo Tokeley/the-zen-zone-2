@@ -45,15 +45,63 @@ async function uploadFile(
   fileType: 'video' | 'audio' | 'thumbnail',
   file: File,
 ): Promise<string> {
-  const fd = new FormData();
-  fd.append('sceneId', sceneId);
-  fd.append('fileType', fileType);
-  fd.append('file', file);
+  const prepareResponse = await fetch('/api/admin/upload', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      sceneId,
+      fileType,
+      fileName: file.name,
+      contentType: file.type,
+      fileSize: file.size,
+    }),
+  });
 
-  const res = await fetch('/api/admin/upload', { method: 'POST', body: fd });
-  const json = await res.json();
-  if (!res.ok) throw new Error(json.error ?? 'Upload failed');
-  return json.publicUrl as string;
+  const responseText = await prepareResponse.text();
+  let prepared: {
+    uploadUrl?: string;
+    publicUrl?: string;
+    contentType?: string;
+    error?: string;
+  };
+
+  try {
+    prepared = JSON.parse(responseText);
+  } catch {
+    const detail = responseText.replace(/\s+/g, ' ').trim().slice(0, 160);
+    throw new Error(
+      `Could not prepare upload (${prepareResponse.status})${detail ? `: ${detail}` : ''}`,
+    );
+  }
+
+  if (!prepareResponse.ok) {
+    throw new Error(prepared.error ?? `Could not prepare upload (${prepareResponse.status})`);
+  }
+  if (!prepared.uploadUrl || !prepared.publicUrl || !prepared.contentType) {
+    throw new Error('Upload endpoint returned an incomplete response');
+  }
+
+  let uploadResponse: Response;
+  try {
+    uploadResponse = await fetch(prepared.uploadUrl, {
+      method: 'PUT',
+      headers: { 'Content-Type': prepared.contentType },
+      body: file,
+    });
+  } catch {
+    throw new Error(
+      'Could not upload directly to R2. Check that the bucket CORS policy allows PUT requests from this site.',
+    );
+  }
+
+  if (!uploadResponse.ok) {
+    const detail = (await uploadResponse.text()).replace(/\s+/g, ' ').trim().slice(0, 160);
+    throw new Error(
+      `R2 upload failed (${uploadResponse.status})${detail ? `: ${detail}` : ''}`,
+    );
+  }
+
+  return prepared.publicUrl;
 }
 
 // ---------------------------------------------------------------------------

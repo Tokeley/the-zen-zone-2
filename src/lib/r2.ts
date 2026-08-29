@@ -3,8 +3,10 @@ import {
   DeleteObjectCommand,
   DeleteObjectsCommand,
   ListObjectsV2Command,
+  PutObjectCommand,
   S3Client,
 } from '@aws-sdk/client-s3';
+import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
 
 // ---------------------------------------------------------------------------
 // R2 S3-compatible client (server-only)
@@ -13,11 +15,34 @@ import {
 export const r2 = new S3Client({
   region: 'auto',
   endpoint: `https://${process.env.R2_ACCOUNT_ID}.r2.cloudflarestorage.com`,
+  // R2 does not need the AWS SDK's automatic CRC32 upload parameters.
+  requestChecksumCalculation: 'WHEN_REQUIRED',
   credentials: {
     accessKeyId: process.env.R2_ACCESS_KEY_ID!,
     secretAccessKey: process.env.R2_SECRET_ACCESS_KEY!,
   },
 });
+
+/**
+ * Creates a short-lived URL that lets the browser upload directly to R2.
+ * Keeping the file body out of the app server avoids serverless request limits.
+ */
+export async function createPresignedUploadUrl(
+  bucket: string,
+  key: string,
+  contentType: string,
+  expiresIn = 15 * 60,
+): Promise<string> {
+  return getSignedUrl(
+    r2,
+    new PutObjectCommand({
+      Bucket: bucket,
+      Key: key,
+      ContentType: contentType,
+    }),
+    { expiresIn },
+  );
+}
 
 // ---------------------------------------------------------------------------
 // Public URL helpers

@@ -1,15 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { PutObjectCommand } from '@aws-sdk/client-s3';
 import { cookies } from 'next/headers';
 
 import { createClient } from '@/src/lib/supabase/server';
-import { r2 } from '@/src/lib/r2';
-
-// Allow large video files (up to 200 MB)
-export const maxDuration = 60;
+import { createPresignedUploadUrl } from '@/src/lib/r2';
 
 const MAX_VIDEO_BYTES = 200 * 1024 * 1024;
 const MAX_AUDIO_BYTES = 100 * 1024 * 1024;
+const MAX_THUMBNAIL_BYTES = 10 * 1024 * 1024;
 
 const ALLOWED: Record<string, string[]> = {
   video: ['video/mp4', 'video/webm', 'video/quicktime'],
@@ -31,11 +28,11 @@ function normalizeMimeType(type: string): string {
   return type.split(';')[0]?.trim() ?? '';
 }
 
-function resolveMimeType(file: File, fileType: string): string | null {
-  const normalized = normalizeMimeType(file.type);
+function resolveMimeType(contentType: string, fileName: string, fileType: string): string | null {
+  const normalized = normalizeMimeType(contentType);
   if (normalized) return normalized;
 
-  const ext = file.name.split('.').pop()?.toLowerCase();
+  const ext = fileName.split('.').pop()?.toLowerCase();
   if (fileType === 'video') {
     if (ext === 'mp4') return 'video/mp4';
     if (ext === 'webm') return 'video/webm';
@@ -82,26 +79,33 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
 
-  let formData: FormData;
+  let body: Record<string, unknown>;
   try {
-    formData = await req.formData();
+    body = await req.json();
   } catch (err) {
-    console.error('[admin/upload] formData parse error:', err);
+    console.error('[admin/upload] request parse error:', err);
+    return NextResponse.json({ error: 'Invalid upload request' }, { status: 400 });
+  }
+
+  const { sceneId, fileType, fileName, contentType, fileSize } = body;
+
+  if (
+    typeof sceneId !== 'string' ||
+    typeof fileType !== 'string' ||
+    typeof fileName !== 'string' ||
+    typeof contentType !== 'string' ||
+    typeof fileSize !== 'number' ||
+    !Number.isSafeInteger(fileSize) ||
+    fileSize <= 0
+  ) {
     return NextResponse.json(
-      {
-        error:
-          'Could not read upload. The file may exceed the server size limit — restart the dev server after config changes.',
-      },
+      { error: 'sceneId, fileType, fileName, contentType, and fileSize are required' },
       { status: 400 },
     );
   }
 
-  const sceneId = formData.get('sceneId');
-  const fileType = formData.get('fileType');
-  const file = formData.get('file');
-
-  if (typeof sceneId !== 'string' || typeof fileType !== 'string' || !(file instanceof Blob)) {
-    return NextResponse.json({ error: 'sceneId, fileType, and file are required' }, { status: 400 });
+  if (!/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(sceneId)) {
+    return NextResponse.json({ error: 'Invalid sceneId' }, { status: 400 });
   }
 
   const allowed = ALLOWED[fileType];
@@ -109,24 +113,31 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: `Unknown fileType "${fileType}"` }, { status: 400 });
   }
 
-  const mimeType = resolveMimeType(file as File, fileType);
+  const mimeType = resolveMimeType(contentType, fileName, fileType);
   if (!mimeType || !allowed.includes(mimeType)) {
     return NextResponse.json(
-      { error: `Content type "${file.type || 'unknown'}" is not allowed for ${fileType}` },
+      { error: `Content type "${contentType || 'unknown'}" is not allowed for ${fileType}` },
       { status: 400 },
     );
   }
 
-  if (fileType === 'video' && file.size > MAX_VIDEO_BYTES) {
+  if (fileType === 'video' && fileSize > MAX_VIDEO_BYTES) {
     return NextResponse.json(
       { error: `Video must be ${MAX_VIDEO_BYTES / (1024 * 1024)} MB or smaller` },
       { status: 400 },
     );
   }
 
-  if (fileType === 'audio' && file.size > MAX_AUDIO_BYTES) {
+  if (fileType === 'audio' && fileSize > MAX_AUDIO_BYTES) {
     return NextResponse.json(
       { error: `Audio must be ${MAX_AUDIO_BYTES / (1024 * 1024)} MB or smaller` },
+      { status: 400 },
+    );
+  }
+
+  if (fileType === 'thumbnail' && fileSize > MAX_THUMBNAIL_BYTES) {
+    return NextResponse.json(
+      { error: `Thumbnail must be ${MAX_THUMBNAIL_BYTES / (1024 * 1024)} MB or smaller` },
       { status: 400 },
     );
   }
@@ -136,26 +147,22 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'R2_BUCKET_SCENES env var is not set' }, { status: 500 });
   }
 
-  const key = resolveObjectKey(sceneId, fileType, mimeType, (file as File).name);
+  const publicBaseUrl = process.env.NEXT_PUBLIC_R2_SCENES_URL;
+  if (!publicBaseUrl) {
+    return NextResponse.json({ error: 'NEXT_PUBLIC_R2_SCENES_URL env var is not set' }, { status: 500 });
+  }
+
+  const key = resolveObjectKey(sceneId, fileType, mimeType, fileName);
   if (!key) {
     return NextResponse.json({ error: 'Could not determine storage key for file' }, { status: 400 });
   }
 
   try {
-    const buffer = Buffer.from(await file.arrayBuffer());
-    await r2.send(
-      new PutObjectCommand({
-        Bucket: bucket,
-        Key: key,
-        Body: buffer,
-        ContentType: mimeType,
-      }),
-    );
-
-    const publicUrl = `${process.env.NEXT_PUBLIC_R2_SCENES_URL}/${key}`;
-    return NextResponse.json({ publicUrl, key });
+    const uploadUrl = await createPresignedUploadUrl(bucket, key, mimeType);
+    const publicUrl = `${publicBaseUrl.replace(/\/$/, '')}/${key}`;
+    return NextResponse.json({ uploadUrl, publicUrl, key, contentType: mimeType });
   } catch (err) {
-    console.error('[admin/upload] R2 upload error:', err);
-    return NextResponse.json({ error: 'Failed to upload file to R2' }, { status: 500 });
+    console.error('[admin/upload] presign error:', err);
+    return NextResponse.json({ error: 'Failed to prepare upload' }, { status: 500 });
   }
 }
